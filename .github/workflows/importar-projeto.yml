@@ -1,0 +1,62 @@
+name: Importar projeto Munny Kotlin a partir do ZIP
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'Munny-Matrix-2.0-Kotlin-Projeto.zip'
+permissions:
+  contents: write
+jobs:
+  importar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - name: Validar e extrair o ZIP do projeto
+        shell: bash
+        run: |
+          set -euo pipefail
+          archive="Munny-Matrix-2.0-Kotlin-Projeto.zip"
+          test -f "$archive" || { echo "::error::Envie $archive para a raiz do repositório"; exit 1; }
+          echo '6f6439838710b32fdd9cf85899ebde7935367475dcb9befef3b050c58aa1989f  Munny-Matrix-2.0-Kotlin-Projeto.zip' | sha256sum -c -
+          python3 - <<'PY'
+          from pathlib import Path, PurePosixPath
+          import zipfile
+          source = Path("Munny-Matrix-2.0-Kotlin-Projeto.zip")
+          dest = Path("_munny_project")
+          with zipfile.ZipFile(source) as z:
+              for info in z.infolist():
+                  path = PurePosixPath(info.filename)
+                  if path.is_absolute() or ".." in path.parts or not info.filename:
+                      raise SystemExit(f"Caminho inseguro: {info.filename}")
+                  if info.is_dir():
+                      continue
+                  if info.filename.startswith(".git/") or info.filename.endswith(".jks"):
+                      raise SystemExit(f"Arquivo proibido: {info.filename}")
+              z.extractall(dest)
+          for expected in ("settings.gradle.kts", "app/src/main/AndroidManifest.xml",
+                           "app/src/main/java/app/munny/nativeapp/FinanceMath.kt",
+                           ".github/workflows/compilar-apk.yml"):
+              if not (dest / expected).is_file():
+                  raise SystemExit(f"ZIP incompleto: {expected}")
+          PY
+          cp -a _munny_project/. .
+          rm -rf _munny_project
+      - name: Publicar fontes na branch principal
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm -f --ignore-unmatch Munny-Matrix-2.0-Kotlin-Projeto.zip
+          git add app tests .github/workflows/compilar-apk.yml build.gradle.kts settings.gradle.kts gradle.properties .gitignore README.md VALIDACAO.md
+          if git diff --cached --quiet; then
+            echo 'Nenhuma mudança para publicar'
+            exit 0
+          fi
+          git commit -m 'feat: importar Munny Matrix 2.0 Kotlin completo'
+          git push origin HEAD:main
