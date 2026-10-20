@@ -1,3 +1,4 @@
+// Pipeline CI: build verificado apos importacao do projeto completo.
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
