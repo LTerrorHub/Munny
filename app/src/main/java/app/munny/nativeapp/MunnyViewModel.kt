@@ -22,7 +22,7 @@ class MunnyViewModel(application:Application):AndroidViewModel(application) {
     var matrixEnabled by androidx.compose.runtime.mutableStateOf(displayPrefs.getBoolean("matrix_enabled",true))
         private set
     fun toggleBalanceVisibility(){balancesVisible=!balancesVisible;displayPrefs.edit().putBoolean("balances_visible",balancesVisible).apply()}
-    fun setMatrixEnabled(enabled:Boolean){matrixEnabled=enabled;displayPrefs.edit().putBoolean("matrix_enabled",enabled).apply()}
+    fun updateMatrixEnabled(enabled:Boolean){matrixEnabled=enabled;displayPrefs.edit().putBoolean("matrix_enabled",enabled).apply()}
     val email get()=repo.email
     val loggedIn get()=repo.loggedIn
     var activeTab by androidx.compose.runtime.mutableStateOf("home")
