@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'Munny-Matrix-2.0-Kotlin-Projeto.zip'
+      - '.github/workflows/importar-projeto.yml'
 permissions:
   contents: write
 jobs:
@@ -53,7 +54,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm -f --ignore-unmatch Munny-Matrix-2.0-Kotlin-Projeto.zip
-          git add app tests .github/workflows/compilar-apk.yml build.gradle.kts settings.gradle.kts gradle.properties .gitignore README.md VALIDACAO.md
+          git add app tests build.gradle.kts settings.gradle.kts gradle.properties .gitignore README.md VALIDACAO.md
           if git diff --cached --quiet; then
             echo 'Nenhuma mudança para publicar'
             exit 0
