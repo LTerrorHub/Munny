@@ -329,7 +329,7 @@ val monthNow:String get()=YearMonth.now().toString()
                     Text("Chuva digital Matrix",fontWeight=FontWeight.SemiBold)
                     Text("Verde no topo, laranja no meio, cinza ao final. Desative para economizar bateria.",color=Muted,style=MaterialTheme.typography.labelSmall)
                 }
-                Switch(checked=vm.matrixEnabled,onCheckedChange=vm::setMatrixEnabled)
+                Switch(checked=vm.matrixEnabled,onCheckedChange=vm::updateMatrixEnabled)
             }
             Text("Privacidade de valores",fontWeight=FontWeight.SemiBold)
             Text("Use o ícone de olho na barra superior para ocultar ou revelar valores.",color=Muted,style=MaterialTheme.typography.labelSmall)
