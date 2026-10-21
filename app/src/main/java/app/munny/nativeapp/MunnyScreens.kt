@@ -404,7 +404,7 @@ val monthNow:String get()=YearMonth.now().toString()
             Spacer(Modifier.height(9.dp))
             Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
                 listOf("system" to "Sistema","light" to "Claro","dark" to "Escuro").forEach{(key,label)->
-                    FilterChip(selected=vm.themeMode==key,onClick={vm.setThemeMode(key)},label={Text(label)})
+                    FilterChip(selected=vm.themeMode==key,onClick={vm.updateThemeMode(key)},label={Text(label)})
                 }
             }
             Spacer(Modifier.height(13.dp))
