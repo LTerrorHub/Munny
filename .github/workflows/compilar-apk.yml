@@ -1,4 +1,4 @@
-name: Munny Matrix - Compilar APK Kotlin
+name: Munny 2.3 - Validacao e Release
 on:
   workflow_dispatch:
   pull_request:
