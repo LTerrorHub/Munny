@@ -1,16 +1,41 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp" android:height="108dp"
-    android:viewportWidth="108" android:viewportHeight="108">
-    <!-- Emblema Munny: M orgânico, carteira e moeda; safe zone adaptativa -->
-    <path android:fillColor="#0B201D" android:pathData="M0,0h108v108h-108z"/>
-    <path android:fillColor="#D9A547" android:pathData="M53,16a17,17 0,1 1,0 34a17,17 0,1 1,0 -34"/>
-    <path android:fillColor="#FFE39A" android:pathData="M53,20a13,13 0,1 1,0 26a13,13 0,1 1,0 -26"/>
-    <path android:fillColor="#084C40" android:pathData="M18,74 L18,33 Q18,25 26,25 Q30,25 34,29 L53,49 L72,29 Q76,25 81,25 Q90,25 90,34 L90,74 Q90,83 82,83 L75,83 L75,47 L58,65 Q53,70 48,65 L33,48 L33,83 L27,83 Q18,83 18,74 Z"/>
-    <path android:fillColor="#2DDBA5" android:pathData="M19,35 Q19,23 30,28 L53,52 L76,28 Q87,22 89,35 L89,44 L59,70 Q53,76 47,70 L19,45 Z"/>
-    <path android:fillColor="#0EA582" android:pathData="M20,47 L46,72 Q53,78 61,71 L89,45 L89,54 L61,81 Q54,86 47,81 L20,56 Z"/>
-    <path android:fillColor="#146254" android:pathData="M66,62 Q66,57 72,57 L89,57 Q96,57 96,65 L96,80 Q96,88 89,88 L73,88 Q66,88 66,80 Z"/>
-    <path android:fillColor="#F3C46A" android:pathData="M83,69a6,6 0,1 1,0 12a6,6 0,1 1,0 -12"/>
-    <path android:fillColor="#FFE9A2" android:pathData="M83,71a4,4 0,1 1,0 8a4,4 0,1 1,0 -8"/>
-    <path android:fillColor="#064B42" android:pathData="M63,55 L79,39 L73,40 L73,35 L90,32 L90,48 L85,48 L85,42 L68,60 Z"/>
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Munny: assinatura M tridimensional, esmeralda e detalhe monetário dourado.
+         O fundo pertence ao adaptive-icon para preservar os recortes do launcher. -->
+    <path android:fillColor="#061B16"
+        android:pathData="M28,73 L28,35 Q28,29 34,29 L39,29 L54,46 L68,29 L75,29 Q81,29 81,35 L81,73 Q81,81 74,81 L67,81 L67,54 L58,65 Q54,70 50,65 L41,54 L41,81 L35,81 Q28,81 28,73 Z"/>
+    <!-- Face lateral profunda -->
+    <path android:fillColor="#08684F"
+        android:pathData="M29,34 L37,36 L37,78 L32,80 Q29,78 29,73 Z"/>
+    <path android:fillColor="#087C61"
+        android:pathData="M70,34 L78,30 L80,35 L80,75 L73,79 L70,74 Z"/>
+    <!-- Corpo primário do M -->
+    <path android:fillColor="#17C895"
+        android:pathData="M32,33 Q32,30 36,30 L40,30 L54,48 L68,30 L74,30 Q77,30 77,34 L77,73 L68,77 L68,51 L57,64 Q54,67 51,64 L41,51 L41,77 L33,77 Z"/>
+    <!-- Faceta superior e acabamento volumétrico -->
+    <path android:fillColor="#7AF2BB"
+        android:pathData="M34,32 L40,32 L54,50 L69,32 L74,32 L54,57 Z"/>
+    <path android:fillColor="#41E9AA"
+        android:pathData="M34,33 L34,42 L51,60 L55,58 L54,53 L40,34 Z"/>
+    <path android:fillColor="#10A77E"
+        android:pathData="M54,58 L75,34 L75,43 L57,65 Q54,68 51,65 Z"/>
+    <!-- Brilho diagonal e borda esmeralda do lado direito -->
+    <path android:fillColor="#A1FFD1"
+        android:pathData="M71,33 L75,33 L75,38 L71,42 Z"/>
+    <path android:fillColor="#09563F"
+        android:pathData="M71,52 L75,48 L75,73 L71,76 Z"/>
+    <!-- Moeda de ouro integrada ao M -->
+    <path android:fillColor="#0A3328"
+        android:pathData="M78,59 a13,13 0,1 1,0 26 a13,13 0,1 1,0 -26"/>
+    <path android:fillColor="#D48E36"
+        android:pathData="M78,60 a12,12 0,1 1,0 24 a12,12 0,1 1,0 -24"/>
+    <path android:fillColor="#FFDA73"
+        android:pathData="M78,63 a9,9 0,1 1,0 18 a9,9 0,1 1,0 -18"/>
+    <path android:fillColor="#126449"
+        android:pathData="M78,66 C74,66 72,68 72,71 C72,74 75,75 78,75 C81,75 82,76 80,78 C78,79 75,78 73,77 L71,80 C75,82 81,83 84,79 C87,74 82,71 78,71 C75,71 75,70 77,69 C79,68 81,69 82,70 L84,67 C82,66 80,65 78,66 Z"/>
+    <path android:fillColor="#126449" android:pathData="M77,64 L80,64 L80,82 L77,82 Z"/>
 </vector>
