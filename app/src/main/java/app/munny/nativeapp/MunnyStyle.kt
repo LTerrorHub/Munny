@@ -23,10 +23,10 @@ import java.util.Locale
     val orange:Color, val gray:Color, val panel:Color
 )
 private val darkPalette=MunnyPalette(
-    sage=Color(0xFF36DBAC),sageSoft=Color(0xFF123F36),canvas=Color(0xFF0A151A),
-    ink=Color(0xFFF2F7F6),muted=Color(0xFFABC0C3),line=Color(0xFF34484D),
-    coral=Color(0xFFFF899A),lilac=Color(0xFF25353A),
-    orange=Color(0xFFFFA858),gray=Color(0xFF87999E),panel=Color(0xFF17252C))
+    sage=Color(0xFF40D9A6),sageSoft=Color(0xFF142923),canvas=Color(0xFF050709),
+    ink=Color(0xFFF1F5F5),muted=Color(0xFFABB9BC),line=Color(0xFF354349),
+    coral=Color(0xFFFF899A),lilac=Color(0xFF20252C),
+    orange=Color(0xFFFFA858),gray=Color(0xFF87999E),panel=Color(0xFF11171C))
 private val lightPalette=MunnyPalette(
     sage=Color(0xFF087C62),sageSoft=Color(0xFFDDF4EB),canvas=Color(0xFFF6F8F7),
     ink=Color(0xFF14262A),muted=Color(0xFF596E71),line=Color(0xFFD9E4E1),
@@ -53,7 +53,7 @@ val LocalMoneyVisible=compositionLocalOf { true }
     val colors=if(isDark) darkColorScheme(
         primary=p.sage,onPrimary=Color(0xFF05241D),primaryContainer=p.sageSoft,
         onPrimaryContainer=p.ink,background=p.canvas,onBackground=p.ink,
-        surface=p.panel,onSurface=p.ink,surfaceVariant=Color(0xFF24363C),
+        surface=p.panel,onSurface=p.ink,surfaceVariant=Color(0xFF222C32),
         onSurfaceVariant=p.muted,outline=p.line,error=p.coral,secondary=p.orange
     ) else lightColorScheme(
         primary=p.sage,onPrimary=Color.White,primaryContainer=p.sageSoft,
