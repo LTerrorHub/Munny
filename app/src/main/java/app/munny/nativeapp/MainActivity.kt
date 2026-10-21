@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
                         ?: error("Arquivo não encontrado")
                 }.onSuccess{model.importJson(it)}.onFailure{model.inform("Falha ao importar: ${it.message}")}
             }
-            MunnyTheme { MunnyApp(model, onExport={export.launch("munny-backup-${java.time.LocalDate.now()}.json")},
+            MunnyTheme(model.themeMode) { MunnyApp(model, onExport={export.launch("munny-backup-${java.time.LocalDate.now()}.json")},
                 onImport={importer.launch(arrayOf("application/json","text/plain"))}) }
         }
     }
