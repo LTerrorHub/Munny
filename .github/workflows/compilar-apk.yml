@@ -41,6 +41,6 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: Munny-Matrix-2.1-Expressive-debug-APK
+          name: Munny-Matrix-2.2-Dark-Agenda-debug-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
