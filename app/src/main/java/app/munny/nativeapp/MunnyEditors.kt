@@ -187,8 +187,8 @@ private fun newMoney(v:String,allowZero:Boolean=false):Long {
         Entry("Limite (R$)",amount,{amount=it});Entry("Mês (AAAA-MM)",month,{month=it})
     }
 }
-@Composable fun EventEditor(onDismiss:()->Unit,onSave:(String,String,String,String)->Unit) {
-    var title by remember{mutableStateOf("")};var date by remember{mutableStateOf(today)}
+@Composable fun EventEditor(initialDate:String=today,onDismiss:()->Unit,onSave:(String,String,String,String)->Unit) {
+    var title by remember{mutableStateOf("")};var date by remember(initialDate){mutableStateOf(initialDate)}
     var time by remember{mutableStateOf("09:00")};var notes by remember{mutableStateOf("")}
     var error by remember{mutableStateOf("")}
     EditorDialog("Novo evento",onDismiss,{

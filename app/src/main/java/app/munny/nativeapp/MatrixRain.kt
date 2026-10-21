@@ -43,10 +43,10 @@ import kotlin.math.floor
                 val y=head-trail*23f*density
                 if(y<0||y>h)continue
                 val ratio=y/h
-                val alpha=((18+((11-trail)*4))*(if(dark)1.0f else .46f)).toInt().coerceAtMost(if(dark)94 else 36)
+                val alpha=((96+((11-trail)*8))*(if(dark)1.0f else .57f)).toInt().coerceIn(35,if(dark)188 else 112)
                 val color=when {
                     ratio<.50f -> android.graphics.Color.argb(alpha,86,241,151)
-                    ratio<.81f -> android.graphics.Color.argb(alpha,250,151,67)
+                    ratio<.76f -> android.graphics.Color.argb(alpha,250,151,67)
                     else -> android.graphics.Color.argb(alpha,144,153,148)
                 }
                 paint.color=color
