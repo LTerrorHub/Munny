@@ -21,6 +21,13 @@ class MunnyViewModel(application:Application):AndroidViewModel(application) {
         private set
     var matrixEnabled by androidx.compose.runtime.mutableStateOf(displayPrefs.getBoolean("matrix_enabled",true))
         private set
+    var themeMode by androidx.compose.runtime.mutableStateOf(displayPrefs.getString("theme_mode","system") ?: "system")
+        private set
+    fun updateThemeMode(mode:String) {
+        if(mode !in listOf("system","light","dark"))return
+        themeMode=mode
+        displayPrefs.edit().putString("theme_mode",mode).apply()
+    }
     fun toggleBalanceVisibility(){balancesVisible=!balancesVisible;displayPrefs.edit().putBoolean("balances_visible",balancesVisible).apply()}
     fun updateMatrixEnabled(enabled:Boolean){matrixEnabled=enabled;displayPrefs.edit().putBoolean("matrix_enabled",enabled).apply()}
     val email get()=repo.email

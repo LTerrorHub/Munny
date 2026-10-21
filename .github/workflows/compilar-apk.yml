@@ -1,6 +1,8 @@
 name: Munny Matrix - Compilar APK Kotlin
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
     paths:
@@ -39,6 +41,6 @@ jobs:
         run: gradle --no-daemon :app:assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
-          name: Munny-Matrix-2.0-Kotlin-debug-APK
+          name: Munny-Matrix-2.1-Expressive-debug-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error

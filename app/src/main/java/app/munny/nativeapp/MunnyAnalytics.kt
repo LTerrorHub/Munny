@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -36,48 +38,97 @@ internal fun categoryConsumption(data:MunnyDocument, month:YearMonth):Map<String
 }
 
 private val monthLabels=Locale("pt","BR")
-private val chartColors=listOf(Sage,MatrixOrange,Color(0xFF60B8A7),Color(0xFF9AB9B0),Color(0xFFBBA5CA),Color(0xFF7B9989),Color(0xFFF7C083))
+private val chartColors=listOf(Color(0xFF16AD88),Color(0xFFF3A24F),Color(0xFF52B4E6),Color(0xFFAD91DE),Color(0xFFEB8193),Color(0xFF81949B),Color(0xFF62C8A4))
 
 @Composable fun MonthlyFinancePanel(data:MunnyDocument) {
     val visible=LocalMoneyVisible.current
-    val periods=remember { (5 downTo 0).map{YearMonth.now().minusMonths(it.toLong())} }
-    val values=remember(data,periods) { periods.map { FinanceMath.month(data.movements(),data.exceptions(),it.toString()) } }
-    val maxVal=max(1L,values.maxOf { max(it.income,it.consumption) })
+    var range by remember { mutableIntStateOf(6) }
+    val periods=remember(range) {(range-1 downTo 0).map{YearMonth.now().minusMonths(it.toLong())}}
+    val values=remember(data,periods){periods.map{FinanceMath.month(data.movements(),data.exceptions(),it.toString())}}
+    val maxVal=max(1L,values.maxOf{max(it.income,it.consumption)})
+    val incomeColor=Sage
+    val consumptionColor=Color(0xFF54A9EC)
+    val gridColor=Line
     SheetCard(Modifier.fillMaxWidth()) {
-        Text("Fluxo financeiro · 6 meses",fontWeight=FontWeight.Bold)
-        Text("Recebimentos confirmados × consumo por competência",color=Muted,style=MaterialTheme.typography.labelSmall)
-        Spacer(Modifier.height(15.dp))
-        if (!visible) {
-            Text("Valores e gráficos ocultos. Toque no olho para visualizar.",color=Muted)
+        Row(verticalAlignment=Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text("Fluxo de caixa",fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium)
+                Text("Recebimentos × consumo por mês",color=Muted,style=MaterialTheme.typography.labelSmall)
+            }
+            listOf(3,6).forEach { months ->
+                FilterChip(selected=range==months,onClick={range=months},
+                    modifier=Modifier.padding(start=4.dp),
+                    label={Text("${months}m",style=MaterialTheme.typography.labelSmall)})
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        if(!visible) {
+            Text("Gráfico oculto pelo modo privacidade.",color=Muted)
         } else if(values.all{it.income==0L&&it.consumption==0L}) {
-            Text("Sem movimentações nesses meses. O gráfico será criado ao registrar lançamentos.",color=Muted)
+            Text("Registre lançamentos para visualizar o fluxo financeiro.",color=Muted)
         } else {
-            Row(horizontalArrangement=Arrangement.spacedBy(15.dp),verticalAlignment=Alignment.CenterVertically){
-                LegendDot(Sage,"Recebimentos")
-                LegendDot(MatrixOrange,"Consumo")
+            Row(horizontalArrangement=Arrangement.spacedBy(17.dp),verticalAlignment=Alignment.CenterVertically) {
+                LegendDot(incomeColor,"Entradas")
+                LegendDot(consumptionColor,"Gastos")
             }
-            Spacer(Modifier.height(10.dp))
-            Canvas(Modifier.fillMaxWidth().height(152.dp)) {
-                val inset=9.dp.toPx()
-                val height=size.height-inset
-                val groupWidth=size.width/values.size
-                val barWidth=(groupWidth*.25f).coerceAtMost(18.dp.toPx())
-                drawLine(Line,Offset(0f,height),Offset(size.width,height),strokeWidth=1.dp.toPx())
-                values.forEachIndexed { ix,entry ->
-                    val x=ix*groupWidth+groupWidth*.25f
-                    val incomeHeight=height*(entry.income.toDouble()/maxVal).toFloat()
-                    val consumeHeight=height*(entry.consumption.toDouble()/maxVal).toFloat()
-                    if(incomeHeight>0) drawRoundRect(color=Sage,topLeft=Offset(x,height-incomeHeight),size=androidx.compose.ui.geometry.Size(barWidth,incomeHeight),cornerRadius=CornerRadius(4.dp.toPx()))
-                    if(consumeHeight>0) drawRoundRect(color=MatrixOrange,topLeft=Offset(x+barWidth+3.dp.toPx(),height-consumeHeight),size=androidx.compose.ui.geometry.Size(barWidth,consumeHeight),cornerRadius=CornerRadius(4.dp.toPx()))
+            Spacer(Modifier.height(12.dp))
+            Canvas(Modifier.fillMaxWidth().height(177.dp)) {
+                val left=6.dp.toPx()
+                val right=size.width-6.dp.toPx()
+                val bottom=size.height-12.dp.toPx()
+                val top=10.dp.toPx()
+                val usable=bottom-top
+                for(i in 0..3){
+                    val y=top+usable*i/3
+                    drawLine(gridColor.copy(alpha=.48f),Offset(left,y),Offset(right,y),strokeWidth=1.dp.toPx())
                 }
+                fun xy(index:Int,value:Long):Offset {
+                    val x=left+(right-left)*(index.toFloat()/((values.size-1).coerceAtLeast(1)))
+                    val y=bottom-(value.toFloat()/maxVal.toFloat())*usable
+                    return Offset(x,y)
+                }
+                fun curve(entries:List<Long>):Path {
+                    val points=entries.mapIndexed{index,value->xy(index,value)}
+                    val path=Path()
+                    if(points.isNotEmpty()) {
+                        path.moveTo(points[0].x,points[0].y)
+                        for(i in 1 until points.size){
+                            val prev=points[i-1];val next=points[i]
+                            val mid=(prev.x+next.x)/2f
+                            path.cubicTo(mid,prev.y,mid,next.y,next.x,next.y)
+                        }
+                    }
+                    return path
+                }
+                fun plot(entries:List<Long>,color:Color,fill:Boolean) {
+                    val points=entries.mapIndexed{index,value->xy(index,value)}
+                    if(points.isEmpty())return
+                    val path=curve(entries)
+                    if(fill) {
+                        val area=Path().apply {
+                            addPath(path)
+                            lineTo(points.last().x,bottom)
+                            lineTo(points.first().x,bottom)
+                            close()
+                        }
+                        drawPath(area,brush=Brush.verticalGradient(
+                            listOf(color.copy(alpha=.23f),color.copy(alpha=.015f)),startY=top,endY=bottom))
+                    }
+                    drawPath(path,color=color,style=Stroke(width=2.9.dp.toPx(),cap=StrokeCap.Round))
+                    points.forEach{pt->drawCircle(color,3.dp.toPx(),pt)}
+                }
+                plot(values.map{it.income},incomeColor,true)
+                plot(values.map{it.consumption},consumptionColor,false)
             }
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceAround){
-                periods.forEach { ym -> Text("${ym.monthValue.toString().padStart(2,'0')}/${ym.year%100}",color=Muted,style=MaterialTheme.typography.labelSmall) }
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){
+                periods.forEach{period->Text(
+                    period.month.getDisplayName(TextStyle.SHORT,monthLabels).replaceFirstChar{it.uppercase()},
+                    color=Muted,style=MaterialTheme.typography.labelSmall)}
             }
             Spacer(Modifier.height(7.dp))
-            val last=values.last()
-            Text("Mês atual: ${safeMoney(last.income)} recebidos · ${safeMoney(last.consumption)} consumidos",
-                style=MaterialTheme.typography.labelSmall,color=Muted)
+            val current=values.last()
+            Text("Neste mês: ${safeMoney(current.income)} recebidos · ${safeMoney(current.consumption)} consumidos",
+                color=Muted,style=MaterialTheme.typography.labelSmall)
         }
     }
 }
@@ -99,8 +150,9 @@ private val chartColors=listOf(Sage,MatrixOrange,Color(0xFF60B8A7),Color(0xFF9AB
     val movements=remember(data,period){FinanceMath.occurrences(data.movements(),data.exceptions(),period.atEndOfMonth().toString())
         .filter{it.date.startsWith(period.toString()) && (it.kind=="card"||(it.kind=="expense"&&it.status=="paid"))}
         .sortedByDescending{it.date}}
+    val donutTrack=Line
     SheetCard(Modifier.fillMaxWidth()) {
-        Text("Detalhamento de gastos",fontWeight=FontWeight.Bold)
+        Text("Gastos por categoria",fontWeight=FontWeight.Bold)
         Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){
             IconButton(onClick={relativeMonth=(relativeMonth-1).coerceAtLeast(-24)}){
                 Icon(Icons.Default.ArrowBackIosNew,"Mês anterior",tint=Sage)
@@ -117,7 +169,7 @@ private val chartColors=listOf(Sage,MatrixOrange,Color(0xFF60B8A7),Color(0xFF9AB
                 Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(17.dp)){
                     Canvas(Modifier.size(118.dp)) {
                         val width=18.dp.toPx()
-                        drawArc(Line,0f,360f,false,style=Stroke(width=width))
+                        drawArc(donutTrack,0f,360f,false,style=Stroke(width=width))
                         var start=-90f
                         groups.entries.forEachIndexed{index,(_,value)->
                             val sweep=360f*(value.toDouble()/total).toFloat()
