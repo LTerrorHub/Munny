@@ -14,6 +14,15 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -30,8 +39,11 @@ val today:String get()=LocalDate.now().toString()
 val monthNow:String get()=YearMonth.now().toString()
 
 @Composable fun SheetCard(modifier:Modifier=Modifier, content:@Composable ColumnScope.()->Unit) {
-    Card(modifier=modifier,shape=RoundedCornerShape(20.dp),colors=CardDefaults.cardColors(containerColor=Panel.copy(alpha=.96f)),
-        border=BorderStroke(1.dp,Line),content= {Column(Modifier.padding(18.dp),content=content)})
+    Card(modifier=modifier.animateContentSize(animationSpec=spring(stiffness=Spring.StiffnessMediumLow)),
+        shape=RoundedCornerShape(26.dp),colors=CardDefaults.cardColors(containerColor=Panel),
+        border=BorderStroke(1.dp,Line.copy(alpha=.72f)),
+        elevation=CardDefaults.cardElevation(defaultElevation=1.dp),
+        content={Column(Modifier.padding(18.dp),content=content)})
 }
 @Composable fun PageHeader(title:String,subtitle:String) {
     Text(title,style=MaterialTheme.typography.headlineSmall)
@@ -41,11 +53,23 @@ val monthNow:String get()=YearMonth.now().toString()
 @Composable fun BigMoney(value:Long,highlight:Boolean=true) {
     Text(safeMoney(value),style=MaterialTheme.typography.headlineMedium,color=if(value<0)Coral else if(highlight)Ink else Sage)
 }
-@Composable fun NumberTile(label:String,value:Long,detail:String,modifier:Modifier=Modifier) {
-    SheetCard(modifier) { Text(label,color=Muted,style=MaterialTheme.typography.labelSmall)
-        Spacer(Modifier.height(8.dp))
-        Text(safeMoney(value),fontWeight=FontWeight.Bold,color=if(value<0)Coral else Ink)
-        Spacer(Modifier.height(5.dp));Text(detail,color=Muted,style=MaterialTheme.typography.labelSmall) }
+@Composable fun NumberTile(label:String,value:Long,detail:String,modifier:Modifier=Modifier,positive:Boolean=true) {
+    val soft=if(positive) SageSoft else MaterialTheme.colorScheme.errorContainer.copy(alpha=.30f)
+    SheetCard(modifier) {
+        Surface(shape=RoundedCornerShape(12.dp),color=soft,modifier=Modifier.size(35.dp)){
+            Box(contentAlignment=Alignment.Center) {
+                Icon(if(positive)Icons.Default.TrendingUp else Icons.Default.TrendingDown,
+                    contentDescription=null,tint=if(positive)Sage else Coral,modifier=Modifier.size(19.dp))
+            }
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(label,color=Muted,style=MaterialTheme.typography.labelSmall)
+        Spacer(Modifier.height(5.dp))
+        Text(safeMoney(value),style=MaterialTheme.typography.titleMedium,
+            fontWeight=FontWeight.Bold,color=Ink,maxLines=1)
+        Spacer(Modifier.height(5.dp))
+        Text(detail,color=Muted,style=MaterialTheme.typography.labelSmall,maxLines=2)
+    }
 }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable fun MunnyApp(vm:MunnyViewModel,onExport:()->Unit,onImport:()->Unit) {
@@ -60,12 +84,15 @@ val monthNow:String get()=YearMonth.now().toString()
         Icons.Default.TrackChanges,Icons.Default.MoreHoriz)
     CompositionLocalProvider(LocalMoneyVisible provides vm.balancesVisible) {
     Box(Modifier.fillMaxSize()) {
-    MatrixRainBackground(vm.matrixEnabled)
+    MatrixRainBackground(vm.matrixEnabled, vm.themeMode=="dark" || (vm.themeMode=="system" && androidx.compose.foundation.isSystemInDarkTheme()))
     Scaffold(containerColor=Color.Transparent,
         topBar={TopAppBar(title={Row(verticalAlignment=Alignment.CenterVertically){
-            Surface(color=Sage,shape=RoundedCornerShape(12.dp)){Text("M",color=Color(0xFF071811),fontWeight=FontWeight.Black,modifier=Modifier.padding(horizontal=12.dp,vertical=7.dp))}
+            Surface(color=SageSoft,shape=RoundedCornerShape(15.dp)){
+                Icon(Icons.Default.AccountBalanceWallet,contentDescription=null,tint=Sage,
+                    modifier=Modifier.padding(10.dp).size(23.dp))
+            }
             Spacer(Modifier.width(11.dp));Column {Text("Munny",fontWeight=FontWeight.Bold);Text("Seu dinheiro, com clareza",color=Muted,style=MaterialTheme.typography.labelSmall)}
-        }},colors=TopAppBarDefaults.topAppBarColors(containerColor=Canvas.copy(alpha=.96f)),
+        }},colors=TopAppBarDefaults.topAppBarColors(containerColor=Canvas.copy(alpha=.93f)),
         actions={
             IconButton(onClick=vm::toggleBalanceVisibility) {
                 Icon(if(vm.balancesVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff,
@@ -74,10 +101,19 @@ val monthNow:String get()=YearMonth.now().toString()
             }
             IconButton(onClick={vm.activeTab="more"}) {Icon(Icons.Default.Cloud,contentDescription="Nuvem",tint=if(vm.loggedIn)Sage else Muted)}
         })},
-        bottomBar={NavigationBar(containerColor=Panel.copy(alpha=.98f),tonalElevation=4.dp) {
-            tabs.forEachIndexed{index,tab -> NavigationBarItem(selected=vm.activeTab==tab,onClick={vm.activeTab=tab},
-                icon={Icon(icons[index],contentDescription=null)},label={Text(labels[index])},alwaysShowLabel=true,
-                colors=NavigationBarItemDefaults.colors(selectedIconColor=Sage,selectedTextColor=Sage,indicatorColor=SageSoft)) }
+        bottomBar={NavigationBar(containerColor=Panel.copy(alpha=.98f),tonalElevation=3.dp) {
+            tabs.forEachIndexed{index,tab ->
+                val chosen=vm.activeTab==tab
+                val navScale by animateFloatAsState(if(chosen)1.17f else 1f,
+                    animationSpec=spring(dampingRatio=Spring.DampingRatioMediumBouncy,
+                        stiffness=Spring.StiffnessMediumLow),label="munny-nav-stretch")
+                NavigationBarItem(selected=chosen,onClick={vm.activeTab=tab},
+                    icon={Icon(icons[index],contentDescription=null,modifier=Modifier.graphicsLayer(
+                        scaleX=navScale,scaleY=navScale))},
+                    label={Text(labels[index],maxLines=1)},alwaysShowLabel=true,
+                    colors=NavigationBarItemDefaults.colors(selectedIconColor=Sage,
+                        selectedTextColor=Sage,indicatorColor=SageSoft))
+            }
         }},
         floatingActionButton={if(vm.activeTab in setOf("home","transactions")) {
             ExtendedFloatingActionButton(onClick={editor="movement";editId=null},containerColor=Sage,contentColor=Color(0xFF061810),
@@ -92,10 +128,13 @@ val monthNow:String get()=YearMonth.now().toString()
                 }
             }
             AnimatedContent(targetState=vm.activeTab,
-                transitionSpec={fadeIn(tween(220)) togetherWith fadeOut(tween(130))},
+                transitionSpec={
+                    (fadeIn(tween(270))+slideInHorizontally(tween(330)){it/7}) togetherWith
+                    (fadeOut(tween(170))+slideOutHorizontally(tween(210)){-it/9})
+                },
                 label="munny-tab-transition") { activeTab ->
             when(activeTab) {
-                "home" -> HomeScreen(data,onAccount={vm.activeTab="accounts"},onTransaction={editor="movement"},onPlanning={vm.activeTab="planning"})
+                "home" -> HomeScreen(data,onAccount={vm.activeTab="accounts"},onTransaction={editor="movement"},onPlanning={vm.activeTab="planning"},onToggleBalance=vm::toggleBalanceVisibility)
                 "transactions" -> TransactionsScreen(data,onNew={editor="movement";editId=null},onEdit={editor="movement";editId=it},
                     onDelete={askDelete="transactions" to it})
                 "accounts" -> AccountsScreen(data,onNewAccount={editor="account";editId=null},onEditAccount={editor="account";editId=it},
@@ -133,44 +172,81 @@ val monthNow:String get()=YearMonth.now().toString()
     }
 }
 
-@Composable fun HomeScreen(data:MunnyDocument,onAccount:()->Unit,onTransaction:()->Unit,onPlanning:()->Unit) {
+@Composable fun HomeScreen(data:MunnyDocument,onAccount:()->Unit,onTransaction:()->Unit,onPlanning:()->Unit,onToggleBalance:()->Unit) {
     val accounts=data.accounts();val moves=data.movements();val exceptions=data.exceptions()
     val balance=remember(data) {FinanceMath.breakdown(accounts,moves,exceptions,today)}
     val monthly=remember(data) {FinanceMath.month(moves,exceptions,monthNow)}
     val forecast=remember(data){FinanceMath.projected(accounts,data.cards(),moves,exceptions,YearMonth.now().atEndOfMonth().toString())}
     var expanded by remember {mutableStateOf(false)}
-    LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(13.dp)) {
-        item {PageHeader("Visão financeira","Disponível agora, consumo e planejamento sem duplicidade.")}
-        item {SheetCard {
-            Row(verticalAlignment=Alignment.CenterVertically) {Icon(Icons.Default.AccountBalanceWallet,null,tint=Sage)
-                Spacer(Modifier.width(8.dp));Text("Saldo nas contas",color=Muted)
+    val visible=LocalMoneyVisible.current
+    val settingsName=data.settings().optString("name").trim()
+    LazyColumn(contentPadding=PaddingValues(horizontal=16.dp,vertical=17.dp),
+        verticalArrangement=Arrangement.spacedBy(13.dp)) {
+        item {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text(if(settingsName.isNotBlank())"Olá, $settingsName!" else "Seu panorama financeiro",
+                        style=MaterialTheme.typography.headlineSmall,color=Ink,fontWeight=FontWeight.Bold)
+                    Text("Seu dinheiro, com mais clareza.",color=Muted)
+                }
+                Surface(shape=RoundedCornerShape(50),color=SageSoft) {
+                    Text(YearMonth.now().month.getDisplayName(java.time.format.TextStyle.SHORT,Locale("pt","BR"))
+                        .replaceFirstChar{it.uppercase()},Modifier.padding(horizontal=14.dp,vertical=9.dp),
+                        color=Sage,fontWeight=FontWeight.SemiBold)
+                }
             }
-            Spacer(Modifier.height(7.dp));BigMoney(balance.total)
-            Text("Somente movimentações confirmadas até hoje",color=Muted,style=MaterialTheme.typography.labelSmall)
-            Spacer(Modifier.height(13.dp))
+        }
+        item {SheetCard(Modifier.fillMaxWidth()) {
+            Row(verticalAlignment=Alignment.CenterVertically) {
+                Surface(color=SageSoft,shape=RoundedCornerShape(14.dp)) {
+                    Icon(Icons.Default.AccountBalanceWallet,null,Modifier.padding(10.dp),tint=Sage)
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Saldo disponível",fontWeight=FontWeight.SemiBold,color=Ink)
+                    Text("Valor atual nas contas",color=Muted,style=MaterialTheme.typography.labelSmall)
+                }
+                IconButton(onClick=onToggleBalance) {
+                    Icon(if(visible)Icons.Default.Visibility else Icons.Default.VisibilityOff,
+                        contentDescription=if(visible)"Ocultar saldo" else "Exibir saldo",tint=Sage)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            BigMoney(balance.total)
+            Text("Somente valores efetivamente confirmados",color=Muted,style=MaterialTheme.typography.labelSmall)
+            Spacer(Modifier.height(9.dp))
             TextButton(onClick={expanded=!expanded},contentPadding=PaddingValues(0.dp)){
-                Text(if(expanded)"Ocultar composição" else "Ver composição do saldo")
+                Text(if(expanded)"Ocultar composição" else "Detalhar saldo")
                 Icon(if(expanded)Icons.Default.ExpandLess else Icons.Default.ExpandMore,null)
             }
             if(expanded) {
                 HorizontalDivider(color=Line);Spacer(Modifier.height(10.dp))
-                BalanceRow("Dinheiro de partida",balance.initial, true)
-                BalanceRow("Entradas recebidas",balance.income,true)
+                BalanceRow("Saldo inicial",balance.initial,true)
+                BalanceRow("Recebimentos",balance.income,true)
                 BalanceRow("Despesas pagas",balance.expenses,false)
                 BalanceRow("Faturas pagas",balance.invoices,false)
-                // transferências globais: 0 líquido
-                Text("Transferências entre suas contas não alteram o total.",color=Muted,style=MaterialTheme.typography.labelSmall)
+                Text("Transferências internas se anulam no total.",color=Muted,style=MaterialTheme.typography.labelSmall)
                 HorizontalDivider(Modifier.padding(vertical=8.dp),color=Line)
                 BalanceRow("Saldo reconciliado",balance.total,true)
             }
         }}
-        item {Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
-            NumberTile("Recebimentos",monthly.income,"Confirmados no mês",Modifier.weight(1f))
-            NumberTile("Consumo",monthly.consumption,"Pago + compras no cartão",Modifier.weight(1f))
+        item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+            NumberTile("Entradas do mês",monthly.income,"Recebidos",Modifier.weight(1f),positive=true)
+            NumberTile("Gastos do mês",monthly.consumption,"Despesas + cartão",Modifier.weight(1f),positive=false)
         }}
-        item {NumberTile("Saldo projetado",forecast,"Inclui previsões e faturas que vencem até o fim do mês")}
         item {MonthlyFinancePanel(data)}
         item {CategorySpendingPanel(data)}
+        item {SheetCard {
+            Row(verticalAlignment=Alignment.CenterVertically) {
+                Icon(Icons.Default.TrendingUp,null,tint=Sage)
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text("Saldo projetado",fontWeight=FontWeight.SemiBold)
+                    Text("Até o fim do mês, considerando previsões",color=Muted,style=MaterialTheme.typography.labelSmall)
+                }
+                Text(safeMoney(forecast),color=Ink,fontWeight=FontWeight.SemiBold)
+            }
+        }}
         if(accounts.isEmpty())item {SheetCard {Text("Cadastre sua primeira conta",fontWeight=FontWeight.Bold)
             Text("Informe o dinheiro que você já possui. Não registre esse mesmo valor novamente como Entrada.",color=Muted)
             Spacer(Modifier.height(10.dp));Button(onClick=onAccount){Text("Adicionar conta")}
@@ -322,8 +398,16 @@ val monthNow:String get()=YearMonth.now().toString()
     var emailInput by remember {mutableStateOf("")};var password by remember {mutableStateOf("")}
     var confirmSync by remember {mutableStateOf("")}
     LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
-        item {PageHeader("Mais","Conta, segurança, agenda e portabilidade.")}
+        item {PageHeader("Mais","Aparência, conta, segurança e portabilidade.")}
         item {SheetCard {
+            Text("Aparência",fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(9.dp))
+            Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+                listOf("system" to "Sistema","light" to "Claro","dark" to "Escuro").forEach{(key,label)->
+                    FilterChip(selected=vm.themeMode==key,onClick={vm.setThemeMode(key)},label={Text(label)})
+                }
+            }
+            Spacer(Modifier.height(13.dp))
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Chuva digital Matrix",fontWeight=FontWeight.SemiBold)
