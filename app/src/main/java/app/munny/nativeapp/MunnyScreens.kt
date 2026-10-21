@@ -1,6 +1,7 @@
 package app.munny.nativeapp
 
 import androidx.compose.foundation.*
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -78,12 +79,14 @@ val monthNow:String get()=YearMonth.now().toString()
     var editId by remember { mutableStateOf<String?>(null) }
     var askDelete by remember { mutableStateOf<Pair<String,String>?>(null) }
     var showSnack by remember { mutableStateOf(false) }
-    val tabs=listOf("home","transactions","accounts","planning","more")
-    val labels=listOf("Início","Lançamentos","Contas","Planejar","Mais")
+    var eventDate by remember { mutableStateOf(today) }
+    val tabs=listOf("home","transactions","accounts","planning","agenda")
+    val labels=listOf("Início","Lançamentos","Contas","Planejar","Agenda")
     val icons=listOf(Icons.Default.Home,Icons.Default.ReceiptLong,Icons.Default.AccountBalanceWallet,
-        Icons.Default.TrackChanges,Icons.Default.MoreHoriz)
+        Icons.Default.TrackChanges,Icons.Default.CalendarMonth)
+    BackHandler(vm.activeTab=="settings") { vm.activeTab="home" }
     CompositionLocalProvider(LocalMoneyVisible provides vm.balancesVisible) {
-    Box(Modifier.fillMaxSize()) {
+    Box(Modifier.fillMaxSize().background(Canvas)) {
     MatrixRainBackground(vm.matrixEnabled, vm.themeMode=="dark" || (vm.themeMode=="system" && androidx.compose.foundation.isSystemInDarkTheme()))
     Scaffold(containerColor=Color.Transparent,
         topBar={TopAppBar(title={Row(verticalAlignment=Alignment.CenterVertically){
@@ -99,7 +102,13 @@ val monthNow:String get()=YearMonth.now().toString()
                     contentDescription=if(vm.balancesVisible) "Ocultar valores" else "Mostrar valores",
                     tint=Sage)
             }
-            IconButton(onClick={vm.activeTab="more"}) {Icon(Icons.Default.Cloud,contentDescription="Nuvem",tint=if(vm.loggedIn)Sage else Muted)}
+            IconButton(onClick={if(vm.loggedIn)vm.performSync() else vm.activeTab="settings"}) {
+                Icon(Icons.Default.Cloud,contentDescription=if(vm.loggedIn)"Sincronizar nuvem" else "Entrar na nuvem",
+                    tint=if(vm.loggedIn)Sage else Muted)
+            }
+            IconButton(onClick={vm.activeTab="settings"}) {
+                Icon(Icons.Default.Settings,contentDescription="Configurações",tint=Ink)
+            }
         })},
         bottomBar={NavigationBar(containerColor=Panel.copy(alpha=.98f),tonalElevation=3.dp) {
             tabs.forEachIndexed{index,tab ->
@@ -141,7 +150,8 @@ val monthNow:String get()=YearMonth.now().toString()
                     onNewCard={editor="card";editId=null},onEditCard={editor="card";editId=it},onPay={editor="invoice";editId=it},
                     onDeleteAccount={askDelete="accounts" to it},onDeleteCard={askDelete="cards" to it})
                 "planning" -> PlanningScreen(data,onGoal={editor="goal"},onBudget={editor="budget"})
-                "more" -> MoreScreen(vm,onExport=onExport,onImport=onImport,onEvent={editor="event"})
+                "agenda" -> MunnyAgendaScreen(data,onNewEvent={eventDate=it;editor="event"})
+                "settings" -> SettingsScreen(vm,onExport=onExport,onImport=onImport)
             }
             }
         }
@@ -157,7 +167,7 @@ val monthNow:String get()=YearMonth.now().toString()
         "invoice"->InvoiceEditor(data,editId?:"",onDismiss={editor=""},onPay={card,bill,acc,date->if(vm.mutate{it.payInvoice(card,bill,acc,date)})editor=""})
         "goal"->GoalEditor(onDismiss={editor=""},onSave={name,target,saved,deadline->if(vm.mutate{it.addGoal(name,target,saved,deadline)})editor=""})
         "budget"->BudgetEditor(data,onDismiss={editor=""},onSave={cat,amount,month->if(vm.mutate{it.addBudget(cat,amount,month)})editor=""})
-        "event"->EventEditor(onDismiss={editor=""},onSave={title,date,time,notes->if(vm.mutate{it.addEvent(title,date,time,notes)})editor=""})
+        "event"->EventEditor(initialDate=eventDate,onDismiss={editor=""},onSave={title,date,time,notes->if(vm.mutate{it.addEvent(title,date,time,notes)})editor=""})
     }
     askDelete?.let{(kind,id)->
         AlertDialog(onDismissRequest={askDelete=null},title={Text("Excluir registro?")},
@@ -393,12 +403,11 @@ val monthNow:String get()=YearMonth.now().toString()
         item{Spacer(Modifier.height(30.dp))}
     }
 }
-@Composable fun MoreScreen(vm:MunnyViewModel,onExport:()->Unit,onImport:()->Unit,onEvent:()->Unit){
-    val data=vm.data
+@Composable fun SettingsScreen(vm:MunnyViewModel,onExport:()->Unit,onImport:()->Unit){
     var emailInput by remember {mutableStateOf("")};var password by remember {mutableStateOf("")}
     var confirmSync by remember {mutableStateOf("")}
     LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
-        item {PageHeader("Mais","Aparência, conta, segurança e portabilidade.")}
+        item {PageHeader("Configurações","Aparência, autenticação, sincronização e backup.")}
         item {SheetCard {
             Text("Aparência",fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(9.dp))
@@ -449,22 +458,6 @@ val monthNow:String get()=YearMonth.now().toString()
             Spacer(Modifier.height(7.dp))
             OutlinedButton(onClick=onImport){Icon(Icons.Default.FileDownload,null);Spacer(Modifier.width(7.dp));Text("Importar JSON")}
             Text("O JSON exportado não é criptografado. Guarde-o em um local privado.",color=Coral,style=MaterialTheme.typography.labelSmall)
-        }}
-        item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
-            Text("Agenda",Modifier.weight(1f),fontWeight=FontWeight.Bold)
-            TextButton(onClick=onEvent){Text("+ Evento")}
-        }}
-        items(data.objects("events").sortedBy{it.optString("date")}.take(20),key={it.getString("id")}) {event ->
-            SheetCard {Text(event.optString("title"),fontWeight=FontWeight.SemiBold)
-                Text("${event.optString("date")} · ${event.optString("time")}",color=Muted)
-                if(event.optString("notes").isNotBlank())Text(event.optString("notes"),color=Muted)
-            }
-        }
-        item {SheetCard {
-            Text("Carteira ≠ Entrada",fontWeight=FontWeight.Bold)
-            Text("O saldo inicial fotografa o dinheiro que já estava na conta. Entrada registra novo dinheiro recebido depois. Registrar o mesmo valor duas vezes causa saldo duplicado.",color=Muted)
-            Spacer(Modifier.height(8.dp));Text("Cartão ≠ débito imediato",fontWeight=FontWeight.Bold)
-            Text("A compra no cartão entra no consumo mensal. O dinheiro sai da conta somente quando a fatura é paga.",color=Muted)
         }}
         item{Spacer(Modifier.height(30.dp))}
     }
