@@ -23,7 +23,7 @@ class MunnyViewModel(application:Application):AndroidViewModel(application) {
         private set
     var themeMode by androidx.compose.runtime.mutableStateOf(displayPrefs.getString("theme_mode","system") ?: "system")
         private set
-    fun setThemeMode(mode:String) {
+    fun updateThemeMode(mode:String) {
         if(mode !in listOf("system","light","dark"))return
         themeMode=mode
         displayPrefs.edit().putString("theme_mode",mode).apply()
