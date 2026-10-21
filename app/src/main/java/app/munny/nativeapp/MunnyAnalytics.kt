@@ -184,15 +184,55 @@ private fun munnyChartPoints(data:MunnyDocument,months:Int):List<MunnyChartPoint
     val donutTrack=Line
     SheetCard(Modifier.fillMaxWidth()) {
         Text("Gastos por categoria",fontWeight=FontWeight.Bold)
-        Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween){
-            IconButton(onClick={relativeMonth=(relativeMonth-1).coerceAtLeast(-24)}){
-                Icon(Icons.Default.ArrowBackIosNew,"Mês anterior",tint=Sage)
+        Spacer(Modifier.height(14.dp))
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal=4.dp),
+            verticalAlignment=Alignment.CenterVertically,
+            horizontalArrangement=Arrangement.SpaceBetween
+        ){
+            val canGoBack=relativeMonth > -24
+            Surface(
+                onClick={relativeMonth=(relativeMonth-1).coerceAtLeast(-24)},
+                enabled=canGoBack,
+                shape=RoundedCornerShape(18.dp),
+                color=if(canGoBack)SageSoft else MaterialTheme.colorScheme.surfaceVariant,
+                border=androidx.compose.foundation.BorderStroke(
+                    1.dp,if(canGoBack)Sage.copy(alpha=.63f) else Line
+                ),
+                shadowElevation=if(canGoBack)3.dp else 0.dp,
+                modifier=Modifier.size(52.dp)
+            ) {
+                Box(contentAlignment=Alignment.Center){
+                    Icon(Icons.Default.ArrowBackIosNew,"Mês anterior",
+                        tint=if(canGoBack)Sage else Muted,modifier=Modifier.size(23.dp))
+                }
             }
-            Text("${period.month.getDisplayName(TextStyle.FULL,monthLabels).replaceFirstChar{it.uppercase()}} ${period.year}",fontWeight=FontWeight.SemiBold)
-            IconButton(onClick={relativeMonth=(relativeMonth+1).coerceAtMost(0)},enabled=relativeMonth<0){
-                Icon(Icons.Default.ArrowForwardIos,"Próximo mês",tint=Sage)
+            Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally) {
+                Text(
+                    "${period.month.getDisplayName(TextStyle.FULL,monthLabels).replaceFirstChar{it.uppercase()}}",
+                    fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium
+                )
+                Text(period.year.toString(),color=Muted,style=MaterialTheme.typography.labelSmall)
+            }
+            val canGoForward=relativeMonth<0
+            Surface(
+                onClick={relativeMonth=(relativeMonth+1).coerceAtMost(0)},
+                enabled=canGoForward,
+                shape=RoundedCornerShape(18.dp),
+                color=if(canGoForward)SageSoft else MaterialTheme.colorScheme.surfaceVariant,
+                border=androidx.compose.foundation.BorderStroke(
+                    1.dp,if(canGoForward)Sage.copy(alpha=.63f) else Line
+                ),
+                shadowElevation=if(canGoForward)3.dp else 0.dp,
+                modifier=Modifier.size(52.dp)
+            ) {
+                Box(contentAlignment=Alignment.Center) {
+                    Icon(Icons.Default.ArrowForwardIos,"Próximo mês",
+                        tint=if(canGoForward)Sage else Muted,modifier=Modifier.size(23.dp))
+                }
             }
         }
+        Spacer(Modifier.height(24.dp))
         when {
             !visible -> Text("Detalhamento oculto. Toque no olho para visualizar.",color=Muted)
             groups.isEmpty() -> Text("Sem despesas confirmadas ou compras no cartão neste período.",color=Muted)
