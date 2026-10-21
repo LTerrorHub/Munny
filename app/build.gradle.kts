@@ -11,13 +11,31 @@ android {
         applicationId = "app.munny.nativeapp" // Pacote separado do Munny original: não sobrescreve dados locais
         minSdk = 26
         targetSdk = 35
-        versionCode = 220
-        versionName = "2.2.0-dark-agenda-beta"
+        versionCode = 230
+        versionName = "2.3.0"
     }
     buildFeatures { compose = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
     kotlinOptions { jvmTarget = "17" }
     packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
+    signingConfigs {
+        create("munnyRelease") {
+            val keyPath = System.getenv("MUNNY_KEYSTORE_PATH")
+            if (!keyPath.isNullOrBlank()) {
+                storeFile = file(keyPath)
+                storePassword = System.getenv("MUNNY_STORE_PASSWORD")
+                keyAlias = System.getenv("MUNNY_KEY_ALIAS")
+                keyPassword = System.getenv("MUNNY_KEY_PASSWORD")
+            }
+        }
+    }
+    buildTypes {
+        getByName("release") {
+            isMinifyEnabled = false
+            if (!System.getenv("MUNNY_KEYSTORE_PATH").isNullOrBlank())
+                signingConfig = signingConfigs.getByName("munnyRelease")
+        }
+    }
 }
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2025.04.01"))

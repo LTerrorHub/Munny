@@ -37,10 +37,46 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-      - name: Compilar APK Kotlin
+      - name: Compilar APK debug de validação
         run: gradle --no-daemon :app:assembleDebug --stacktrace
+
+      - name: Compilar APK release de distribuição
+        env:
+          MUNNY_KEYSTORE_BASE64: ${{ secrets.MUNNY_KEYSTORE_BASE64 }}
+          MUNNY_STORE_PASSWORD: ${{ secrets.MUNNY_STORE_PASSWORD }}
+          MUNNY_KEY_ALIAS: ${{ secrets.MUNNY_KEY_ALIAS }}
+          MUNNY_KEY_PASSWORD: ${{ secrets.MUNNY_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -n "${MUNNY_KEYSTORE_BASE64:-}" && -n "${MUNNY_STORE_PASSWORD:-}" && -n "${MUNNY_KEY_ALIAS:-}" && -n "${MUNNY_KEY_PASSWORD:-}" ]]; then
+            printf '%s' "$MUNNY_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/munny-release.p12"
+            export MUNNY_KEYSTORE_PATH="$RUNNER_TEMP/munny-release.p12"
+            echo "SIGNED_RELEASE_AVAILABLE=true" >> "$GITHUB_ENV"
+          else
+            echo "Chave privada ausente; criando APK release não assinado, para assinatura fora do GitHub."
+            echo "SIGNED_RELEASE_AVAILABLE=false" >> "$GITHUB_ENV"
+          fi
+          gradle --no-daemon :app:assembleRelease --stacktrace
+
       - uses: actions/upload-artifact@v4
         with:
-          name: Munny-Matrix-2.2-Dark-Agenda-debug-APK
+          name: Munny-2.3-debug-validacao
           path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Release assinado (se configurada a keystore)
+        if: env.SIGNED_RELEASE_AVAILABLE == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Munny-2.3-release-assinado
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
+
+      - name: Release sem assinatura (exige assinatura antes de instalar)
+        if: env.SIGNED_RELEASE_AVAILABLE != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Munny-2.3-release-unsigned
+          path: app/build/outputs/apk/release/*unsigned.apk
           if-no-files-found: error
