@@ -13,7 +13,7 @@ import kotlinx.coroutines.isActive
 import kotlin.math.floor
 
 /** Camada decorativa atrás das superfícies sólidas. ~12 fps; sem acesso à rede. */
-@Composable fun MatrixRainBackground(enabled:Boolean, modifier:Modifier=Modifier) {
+@Composable fun MatrixRainBackground(enabled:Boolean, dark:Boolean, modifier:Modifier=Modifier) {
     val context=LocalContext.current
     val reducedMotion=remember { runCatching {
         Settings.Global.getFloat(context.contentResolver,Settings.Global.ANIMATOR_DURATION_SCALE,1f)==0f
@@ -43,7 +43,7 @@ import kotlin.math.floor
                 val y=head-trail*23f*density
                 if(y<0||y>h)continue
                 val ratio=y/h
-                val alpha=(40+((11-trail)*5)).coerceAtMost(104)
+                val alpha=((18+((11-trail)*4))*(if(dark)1.0f else .46f)).toInt().coerceAtMost(if(dark)94 else 36)
                 val color=when {
                     ratio<.50f -> android.graphics.Color.argb(alpha,86,241,151)
                     ratio<.81f -> android.graphics.Color.argb(alpha,250,151,67)
