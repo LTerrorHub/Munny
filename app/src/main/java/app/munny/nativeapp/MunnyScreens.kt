@@ -90,9 +90,11 @@ val monthNow:String get()=YearMonth.now().toString()
     MatrixRainBackground(vm.matrixEnabled, vm.themeMode=="dark" || (vm.themeMode=="system" && androidx.compose.foundation.isSystemInDarkTheme()))
     Scaffold(containerColor=Color.Transparent,
         topBar={TopAppBar(title={Row(verticalAlignment=Alignment.CenterVertically){
-            Surface(color=SageSoft,shape=RoundedCornerShape(15.dp)){
-                Icon(Icons.Default.AccountBalanceWallet,contentDescription=null,tint=Sage,
-                    modifier=Modifier.padding(10.dp).size(23.dp))
+            Surface(color=SageSoft,shape=RoundedCornerShape(17.dp),modifier=Modifier.size(49.dp)) {
+                androidx.compose.foundation.Image(
+                    painter=androidx.compose.ui.res.painterResource(R.drawable.ic_munny_launcher),
+                    contentDescription="Ícone Munny",modifier=Modifier.padding(2.dp)
+                )
             }
             Spacer(Modifier.width(11.dp));Column {Text("Munny",fontWeight=FontWeight.Bold);Text("Seu dinheiro, com clareza",color=Muted,style=MaterialTheme.typography.labelSmall)}
         }},colors=TopAppBarDefaults.topAppBarColors(containerColor=Canvas.copy(alpha=.93f)),
