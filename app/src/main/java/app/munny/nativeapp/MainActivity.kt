@@ -31,6 +31,7 @@ class MainActivity : ComponentActivity() {
     }
     override fun onResume() {
         super.onResume()
-        // Não força sobrescrita. O usuário pode sincronizar manualmente na aba Mais.
+        // Only refresh local widgets; never initiate a remote cloud overwrite.
+        MunnyWidgets.refreshAll(this)
     }
 }

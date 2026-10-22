@@ -23,12 +23,27 @@ class MunnyViewModel(application:Application):AndroidViewModel(application) {
         private set
     var themeMode by androidx.compose.runtime.mutableStateOf(displayPrefs.getString("theme_mode","system") ?: "system")
         private set
+    // Widgets never display monetary values until the user explicitly opts in.
+    var widgetAmountsVisible by androidx.compose.runtime.mutableStateOf(
+        displayPrefs.getBoolean("widget_amounts_visible",false)
+    )
+        private set
+    fun updateWidgetAmountsVisible(enabled:Boolean) {
+        widgetAmountsVisible=enabled
+        displayPrefs.edit().putBoolean("widget_amounts_visible",enabled).apply()
+        MunnyWidgets.refreshAll(getApplication())
+    }
     fun updateThemeMode(mode:String) {
         if(mode !in listOf("system","light","dark"))return
         themeMode=mode
         displayPrefs.edit().putString("theme_mode",mode).apply()
+        MunnyWidgets.refreshAll(getApplication())
     }
-    fun toggleBalanceVisibility(){balancesVisible=!balancesVisible;displayPrefs.edit().putBoolean("balances_visible",balancesVisible).apply()}
+    fun toggleBalanceVisibility(){
+        balancesVisible=!balancesVisible
+        displayPrefs.edit().putBoolean("balances_visible",balancesVisible).apply()
+        MunnyWidgets.refreshAll(getApplication())
+    }
     fun updateMatrixEnabled(enabled:Boolean){matrixEnabled=enabled;displayPrefs.edit().putBoolean("matrix_enabled",enabled).apply()}
     val email get()=repo.email
     val loggedIn get()=repo.loggedIn
@@ -40,6 +55,7 @@ class MunnyViewModel(application:Application):AndroidViewModel(application) {
             val next=block(data)
             repo.replace(next)
             data=next
+            MunnyWidgets.refreshAll(getApplication())
             notice="Registro salvo neste aparelho."
             if(loggedIn) {
                 syncJob?.cancel()
@@ -49,7 +65,8 @@ class MunnyViewModel(application:Application):AndroidViewModel(application) {
         } catch(t:Throwable){notice=t.message?:"Não foi possível salvar."; return false}
     }
     fun importJson(text:String) {
-        try {repo.importJson(text);data=repo.snapshot();notice="Backup JSON importado. Confira o saldo antes de sincronizar."}
+        try {repo.importJson(text);data=repo.snapshot();MunnyWidgets.refreshAll(getApplication())
+            notice="Backup JSON importado. Confira o saldo antes de sincronizar."}
         catch (t:Throwable){notice=t.message?:"Backup inválido."}
     }
     fun exportJson()=repo.exportJson()
@@ -71,7 +88,9 @@ class MunnyViewModel(application:Application):AndroidViewModel(application) {
     fun performSync(mode:String="auto",silent:Boolean=false)=viewModelScope.launch {
         if(!loggedIn)return@launch
         busy=true
-        try {cloudStatus=repo.sync(mode);data=repo.snapshot();if(!silent)notice=cloudStatus}
+        try {cloudStatus=repo.sync(mode);data=repo.snapshot()
+            MunnyWidgets.refreshAll(getApplication())
+            if(!silent)notice=cloudStatus}
         catch(t:Throwable){cloudStatus="Erro na sincronização: ${t.message}";if(!silent)notice=cloudStatus}
         finally{busy=false}
     }

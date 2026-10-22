@@ -18,6 +18,16 @@ data class MoneyBreakdown(val initial: Long, val income: Long, val expenses: Lon
     val total: Long get() = initial + income - expenses - invoices - outgoing + incoming
 }
 data class MonthTotals(val income: Long, val consumption: Long)
+
+/** Consumo é cartão + despesa paga; transferência não é despesa. */
+data class SpendingChannels(
+    val card:Long,val direct:Long,val transferOut:Long,val transferIn:Long,
+    val invoicePayments:Long,val income:Long
+) {
+    val consumption:Long get()=card+direct
+    val cardPercentage:Float get()=if(consumption==0L)0f else card.toFloat()/consumption.toFloat()
+    val directPercentage:Float get()=if(consumption==0L)0f else direct.toFloat()/consumption.toFloat()
+}
 data class Invoice(val cardId: String, val month: String, val due: String, val total: Long, val paid: Long) {
     val remaining: Long get() = (total - paid).coerceAtLeast(0)
 }
@@ -72,6 +82,28 @@ object FinanceMath {
             if ((t.kind == "expense" && t.status == "paid") || t.kind == "card") consumption += t.amount
         }
         return MonthTotals(income, consumption)
+    }
+
+    /** Mesma competência usada por month(): parcelas do cartão entram no consumo,
+     * despesas apenas após confirmação; transferências internas ficam separadas.
+     * Não inclui pagamento de fatura no consumo para evitar contagem dupla.
+     */
+    fun spendingChannels(records:List<MoneyMovement>,exceptions:Set<String>,month:String):SpendingChannels {
+        val end=YearMonth.parse(month).atEndOfMonth().toString()
+        var card=0L;var direct=0L;var transfers=0L;var payments=0L;var income=0L
+        for(m in occurrences(records,exceptions,end)) {
+            if(!m.date.startsWith(month))continue
+            when(m.kind) {
+                "card" -> card+=m.amount
+                "expense" -> if(m.status=="paid")direct+=m.amount
+                "transfer" -> if(m.status=="paid")transfers+=m.amount
+                "cardPayment" -> if(m.status=="paid")payments+=m.amount
+                "income" -> if(m.status=="paid")income+=m.amount
+            }
+        }
+        // For internal transfers the same flow is a debit and a credit;
+        // neither is part of consumption, and their consolidated net is zero.
+        return SpendingChannels(card,direct,transfers,transfers,payments,income)
     }
 
     fun invoiceMonth(card: MoneyCard, purchaseDate: String): String {

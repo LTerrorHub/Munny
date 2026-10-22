@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Munny</string>
+    <string name="munny_widget_balance_desc">Saldo e resumo financeiro privados</string>
+    <string name="munny_widget_spending_desc">Consumo de cartão e despesas diretas</string>
+    <string name="munny_widget_invoices_desc">Próximas faturas e compromissos</string>
+</resources>

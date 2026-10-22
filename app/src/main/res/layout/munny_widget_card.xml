@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/munny_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:padding="16dp"
+    android:orientation="vertical"
+    android:gravity="center_vertical"
+    android:background="@drawable/munny_widget_dark">
+    <TextView android:id="@+id/munny_widget_title"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#D1F5E7" android:textSize="13sp" android:textStyle="bold"
+        android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/munny_widget_value"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" android:textColor="#F4FFF9"
+        android:textSize="23sp" android:textStyle="bold"
+        android:maxLines="1" android:ellipsize="end" />
+    <TextView android:id="@+id/munny_widget_hint"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="5dp" android:textColor="#A9C1BA"
+        android:textSize="11sp" android:maxLines="2" android:ellipsize="end" />
+    <ProgressBar android:id="@+id/munny_widget_progress"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="7dp"
+        android:layout_marginTop="10dp" android:max="100"
+        android:progress="0" android:progressTint="#31D5A0"
+        android:progressBackgroundTint="#4C675F"
+        android:visibility="gone" />
+    <TextView android:id="@+id/munny_widget_footer"
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:layout_marginTop="9dp" android:textColor="#A9C1BA"
+        android:textSize="10sp" android:maxLines="2" android:ellipsize="end" />
+</LinearLayout>
