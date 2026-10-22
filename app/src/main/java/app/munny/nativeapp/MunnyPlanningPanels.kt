@@ -83,7 +83,10 @@ import kotlin.math.min
             if(summary.margin<0L)Coral else Sage,Modifier.fillMaxWidth())
         Spacer(Modifier.height(16.dp))
         Text("Comprometimento da renda",fontWeight=FontWeight.SemiBold,color=Ink)
-        if(commitment==null) {
+        if(!visible) {
+            Text("Percentual e gráfico ocultos pelo modo privacidade.",color=Muted,
+                style=MaterialTheme.typography.bodySmall)
+        } else if(commitment==null) {
             Text("Ainda não há entradas confirmadas neste mês. Não é possível calcular a proporção.",
                 color=Muted,style=MaterialTheme.typography.bodySmall)
         } else {
@@ -258,12 +261,17 @@ private fun parseRate(value:String):Double {
             }
         }
         Spacer(Modifier.height(14.dp))
+        val monetaryMask=if(visible)
+            androidx.compose.ui.text.input.VisualTransformation.None
+            else androidx.compose.ui.text.input.PasswordVisualTransformation()
         OutlinedTextField(value=initial,onValueChange={initial=it.take(20)},
             label={Text("Valor inicial (R$)")},singleLine=true,
+            visualTransformation=monetaryMask,
             modifier=Modifier.fillMaxWidth())
         Spacer(Modifier.height(9.dp))
         OutlinedTextField(value=monthly,onValueChange={monthly=it.take(20)},
             label={Text("Aporte por mês (R$)")},singleLine=true,
+            visualTransformation=monetaryMask,
             modifier=Modifier.fillMaxWidth())
         val tentative=health.illustrativeContribution
         if(tentative!=null) {
