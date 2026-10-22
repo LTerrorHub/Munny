@@ -442,6 +442,26 @@ val monthNow:String get()=YearMonth.now().toString()
             Text("Use o ícone de olho na barra superior para ocultar ou revelar valores.",color=Muted,style=MaterialTheme.typography.labelSmall)
         }}
         item {SheetCard {
+            Text("Widgets para a tela inicial",fontWeight=FontWeight.Bold,
+                style=MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(8.dp))
+            Text("Três widgets nativos: Saldo, Cartão × Despesas e Faturas em aberto.",
+                color=Muted)
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Exibir valores nos widgets",fontWeight=FontWeight.SemiBold)
+                    Text("Desativado por padrão. O botão de olho do app continua podendo ocultar todos os valores.",
+                        color=Muted,style=MaterialTheme.typography.labelSmall)
+                }
+                Switch(checked=vm.widgetAmountsVisible,
+                    onCheckedChange=vm::updateWidgetAmountsVisible)
+            }
+            Spacer(Modifier.height(9.dp))
+            Text("Para adicionar: toque e segure a tela inicial do Android → Widgets → Munny.",
+                color=Sage,style=MaterialTheme.typography.bodySmall)
+        }}
+        item {SheetCard {
             Row(verticalAlignment=Alignment.CenterVertically){Icon(Icons.Default.Cloud,null,tint=Sage);Spacer(Modifier.width(9.dp));Text("Munny Cloud",fontWeight=FontWeight.Bold)}
             Spacer(Modifier.height(8.dp));Text(vm.cloudStatus,color=Muted)
             if(vm.loggedIn){
