@@ -132,7 +132,8 @@ import kotlin.math.min
                 val difference=(maxVal-minVal).coerceAtLeast(1.0)
                 fun locate(index:Int,amount:Long):Offset {
                     val x=left+(right-left)*index/5f
-                    val y=(bottom-(amount.toDouble()-minVal)/difference*(bottom-top)).toFloat()
+                    val fraction=((amount.toDouble()-minVal)/difference).toFloat()
+                    val y=bottom-fraction*(bottom-top)
                     return Offset(x,y)
                 }
                 repeat(4){j->
@@ -355,13 +356,14 @@ private fun parseRate(value:String):Double {
                     val path=Path()
                     values.forEachIndexed{index,point->
                         val x=left+(right-left)*point.month/projection.months.toFloat()
-                        val y=(bottom-(bottom-top)*point.amountCents/maxValue).toFloat()
+                        val fraction=(point.amountCents.toDouble()/maxValue).toFloat()
+                        val y=bottom-(bottom-top)*fraction
                         if(index==0)path.moveTo(x,y) else path.lineTo(x,y)
                     }
                     drawPath(path,accent,style=Stroke(width=3.dp.toPx(),cap=StrokeCap.Round))
                     values.lastOrNull()?.let {point->
                         drawCircle(accent,4.dp.toPx(),Offset(right,
-                            (bottom-(bottom-top)*point.amountCents/maxValue).toFloat()))
+                            bottom-(bottom-top)*(point.amountCents.toDouble()/maxValue).toFloat()))
                     }
                 }
                 Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
