@@ -92,9 +92,9 @@ object MunnyWidgets {
             "spending" -> {
                 title="Munny · Tipos de gasto"
                 main=value(ch.consumption)
-                hint="Cartão: ${String.format(java.util.Locale("pt","BR"),"%.0f",ch.cardPercentage*100f)}% · direto: ${String.format(java.util.Locale("pt","BR"),"%.0f",ch.directPercentage*100f)}%"
+                hint=if(canShow)"Cartão: ${String.format(java.util.Locale("pt","BR"),"%.0f",ch.cardPercentage*100f)}% · direto: ${String.format(java.util.Locale("pt","BR"),"%.0f",ch.directPercentage*100f)}%" else "Percentuais ocultos por privacidade"
                 footer="Transferências internas: ${value(ch.transferOut)}"
-                progress=(ch.cardPercentage*100f).roundToInt()
+                progress=if(canShow)(ch.cardPercentage*100f).roundToInt() else null
             }
             else -> {
                 val due=FinanceMath.invoices(data.cards(),data.movements(),data.exceptions(),
@@ -103,7 +103,7 @@ object MunnyWidgets {
                 main=value(due.sumOf{it.remaining})
                 val next=due.filter{it.due>=LocalDate.now().toString()}.minByOrNull{it.due}
                 val cardName=next?.let{entry->data.cards().find{it.id==entry.cardId}?.name}
-                hint=if(next==null)"Sem faturas pendentes" else "Próxima: ${next.due} · ${cardName?:"Cartão"}"
+                hint=if(!canShow)"Detalhes ocultos por privacidade" else if(next==null)"Sem faturas pendentes" else "Próxima: ${next.due} · ${cardName?:"Cartão"}"
                 footer="Inclui parcelas futuras · toque para abrir Munny"
                 progress=null
             }
