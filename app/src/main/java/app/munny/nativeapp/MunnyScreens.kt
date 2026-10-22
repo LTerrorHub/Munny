@@ -376,12 +376,64 @@ val monthNow:String get()=YearMonth.now().toString()
     }
 }
 @Composable fun PlanningScreen(data:MunnyDocument,onGoal:()->Unit,onBudget:()->Unit) {
+    var section by remember { mutableStateOf("health") }
+    Column(Modifier.fillMaxSize()) {
+        Column(Modifier.padding(horizontal=17.dp,vertical=10.dp)) {
+            PageHeader("Planejar","Saúde financeira, investimentos, metas e limites.")
+            Row(
+                Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement=Arrangement.spacedBy(7.dp)
+            ) {
+                listOf(
+                    "health" to "Saúde",
+                    "invest" to "Simulador",
+                    "goals" to "Metas e limites"
+                ).forEach { (key,label) ->
+                    FilterChip(
+                        selected=section==key,
+                        onClick={section=key},
+                        label={Text(label)},
+                        leadingIcon=if(section==key) {{
+                            Icon(Icons.Default.Check,contentDescription=null,modifier=Modifier.size(16.dp))
+                        }} else null
+                    )
+                }
+            }
+        }
+        when(section) {
+            "health" -> LazyColumn(
+                modifier=Modifier.fillMaxSize(),
+                contentPadding=PaddingValues(start=17.dp,end=17.dp,bottom=120.dp),
+                verticalArrangement=Arrangement.spacedBy(13.dp)
+            ) {
+                item { Column { MunnyFinancialHealth(data) } }
+                item { SheetCard {
+                    Text("Saldo projetado até o fim do mês",color=Muted)
+                    val forecast=FinanceMath.projected(
+                        data.accounts(),data.cards(),data.movements(),
+                        data.exceptions(),YearMonth.now().atEndOfMonth().toString()
+                    )
+                    BigMoney(forecast)
+                    Text("Projeção de caixa com previsões e vencimentos. Não representa patrimônio total.",
+                        color=Muted,style=MaterialTheme.typography.labelSmall)
+                } }
+            }
+            "invest" -> LazyColumn(
+                modifier=Modifier.fillMaxSize(),
+                contentPadding=PaddingValues(start=17.dp,end=17.dp,bottom=120.dp)
+            ) { item { MunnyInvestmentSimulator(data) } }
+            else -> MunnyLegacyPlanningScreen(data,onGoal,onBudget)
+        }
+    }
+}
+
+@Composable private fun MunnyLegacyPlanningScreen(data:MunnyDocument,onGoal:()->Unit,onBudget:()->Unit) {
     val accounts=data.accounts();val moves=data.movements();val ex=data.exceptions()
     val end=YearMonth.now().atEndOfMonth().toString()
     val estimate=FinanceMath.projected(accounts,data.cards(),moves,ex,end)
     val consumption=FinanceMath.month(moves,ex,monthNow).consumption
     LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
-        item {PageHeader("Planejamento","Projeções e limites sem misturar caixa com consumo.")}
+        item {PageHeader("Metas e limites","Orçamentos, objetivos e lançamentos previstos.")}
         item {SheetCard {Text("Saldo projetado no fim do mês",color=Muted)
             BigMoney(estimate)
             Text("Inclui compromissos previstos e o saldo de faturas com vencimento no período.",color=Muted,style=MaterialTheme.typography.labelSmall)
