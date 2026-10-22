@@ -239,7 +239,13 @@ val monthNow:String get()=YearMonth.now().toString()
                 BalanceRow("Faturas pagas",balance.invoices,false)
                 Text("Transferências internas se anulam no total.",color=Muted,style=MaterialTheme.typography.labelSmall)
                 HorizontalDivider(Modifier.padding(vertical=8.dp),color=Line)
-                BalanceRow("Saldo reconciliado",balance.total,true)
+                BalanceRow("Saldo reconciliado",balance.total,balance.total>=0L)
+                CardPositionDetails(data)
+                TextButton(onClick=onAccount) {
+                    Icon(Icons.Default.CreditCard,null)
+                    Spacer(Modifier.width(7.dp))
+                    Text("Ver todas as faturas")
+                }
             }
         }}
         item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
@@ -274,7 +280,10 @@ val monthNow:String get()=YearMonth.now().toString()
 @Composable fun BalanceRow(label:String,value:Long,plus:Boolean) {
     Row(Modifier.fillMaxWidth().padding(vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
         Text(label,color=Muted,modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium)
-        Text("${if(plus)"+" else "−"} ${safeMoney(kotlin.math.abs(value))}",fontWeight=FontWeight.SemiBold)
+        val visible=LocalMoneyVisible.current
+        val sign=if(value<0L)"−" else if(plus)"+" else "−"
+        Text(if(visible) "${sign} ${safeMoney(kotlin.math.abs(value))}" else safeMoney(value),
+            fontWeight=FontWeight.SemiBold,color=if(value<0L)Coral else Ink)
     }
 }
 @Composable fun MovementRow(m:MoneyMovement,onEdit:(()->Unit)?=null,onDelete:(()->Unit)?=null){
@@ -287,9 +296,11 @@ val monthNow:String get()=YearMonth.now().toString()
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)){
                 Text(m.title, fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
-                Text("${m.category} · ${m.date} · ${if(m.status=="paid")"Confirmado" else "Previsto"}",color=Muted,style=MaterialTheme.typography.labelSmall)
+                val kindName=when(m.kind){"card"->"Cartão";"expense"->"Despesa";"transfer"->"Transferência interna";"cardPayment"->"Fatura paga";else->"Entrada"}
+                Text("${kindName} · ${m.category} · ${m.date} · ${if(m.status=="paid")"Confirmado" else "Previsto"}",
+                    color=Muted,style=MaterialTheme.typography.labelSmall)
             }
-            Text("${if(m.kind=="income")"+" else "−"} ${safeMoney(m.amount)}",
+            Text("${if(m.kind=="income")"+" else if(m.kind=="transfer")"⇄" else "−"} ${safeMoney(m.amount)}",
                 color=if(m.kind=="income")Sage else Ink,fontWeight=FontWeight.Bold)
         }
         if(onEdit!=null||onDelete!=null) {
@@ -308,10 +319,11 @@ val monthNow:String get()=YearMonth.now().toString()
         (query.isBlank()||it.title.contains(query,true)||it.category.contains(query,true))}
     LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){
         item {PageHeader("Lançamentos","Entradas, despesas, cartões e transferências.")}
+        item {SpendingTypeDashboard(data,onSelectKind={filter=it})}
         item {OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),label={Text("Buscar lançamento")},
             leadingIcon={Icon(Icons.Default.Search,null)},singleLine=true)}
         item {Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){
-            listOf("all" to "Todos","income" to "Entradas","expense" to "Despesas","card" to "Cartão","transfer" to "Transferências").forEach { (id,label) ->
+            listOf("all" to "Todos","income" to "Entradas","expense" to "Despesas","card" to "Cartão","transfer" to "Transferências","cardPayment" to "Fatura paga").forEach { (id,label) ->
                 FilterChip(selected=filter==id,onClick={filter=id},label={Text(label)}) }
         }}
         if(shown.isEmpty())item{SheetCard{Text("Nenhum lançamento encontrado.")}}
