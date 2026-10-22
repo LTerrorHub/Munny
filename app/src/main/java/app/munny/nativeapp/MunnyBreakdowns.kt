@@ -77,6 +77,7 @@ private val directColor=Color(0xFFF4AB56)
 /** Percentual de consumo: cartão versus despesas diretas. Transferências em grupo separado. */
 @Composable fun SpendingTypeDashboard(data:MunnyDocument,onSelectKind:(String)->Unit) {
     val visible=LocalMoneyVisible.current
+    val chartTrack=Line
     var offset by remember { mutableIntStateOf(0) }
     var selected by remember { mutableStateOf("card") }
     val period=remember(offset){YearMonth.now().plusMonths(offset.toLong())}
@@ -120,7 +121,7 @@ private val directColor=Color(0xFFF4AB56)
                 verticalAlignment=Alignment.CenterVertically) {
                 Canvas(Modifier.size(110.dp)) {
                     val thickness=19.dp.toPx()
-                    drawArc(Line,-90f,360f,false,style=Stroke(width=thickness))
+                    drawArc(chartTrack,-90f,360f,false,style=Stroke(width=thickness))
                     if(channels.consumption>0L) {
                         val sweep=360f*channels.cardPercentage
                         drawArc(cardColor,-90f,sweep,false,style=Stroke(width=thickness))
