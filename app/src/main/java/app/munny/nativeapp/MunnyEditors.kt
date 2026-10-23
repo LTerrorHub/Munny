@@ -163,16 +163,27 @@ private fun newMoney(v:String,allowZero:Boolean=false):Long {
         Text("Somente registre como pago após a saída real do dinheiro.",color=Muted)
     }
 }
-@Composable fun GoalEditor(onDismiss:()->Unit,onSave:(String,Long,Long,String)->Unit) {
-    var name by remember{mutableStateOf("")};var target by remember{mutableStateOf("")}
-    var saved by remember{mutableStateOf("0,00")};var deadline by remember{mutableStateOf(LocalDate.now().plusMonths(6).toString())}
-    var error by remember{mutableStateOf("")}
-    EditorDialog("Nova meta",onDismiss,{
-        try{onSave(name,newMoney(target),newMoney(saved,true),LocalDate.parse(deadline).toString())}
+@Composable fun GoalEditor(data:MunnyDocument,id:String?,onDismiss:()->Unit,
+    onSave:(String?,String,Long,Long,String)->Unit) {
+    val goal=data.objects("goals").firstOrNull{it.optString("id")==id}
+    var name by remember(id){mutableStateOf(goal?.optString("name")?:"")}
+    var target by remember(id){mutableStateOf(goal?.optLong("target")?.let{
+        String.format(java.util.Locale("pt","BR"),"%.2f",it/100.0)}?:"")}
+    var saved by remember(id){mutableStateOf(goal?.optLong("saved")?.let{
+        String.format(java.util.Locale("pt","BR"),"%.2f",it/100.0)}?:"0,00")}
+    var deadline by remember(id){mutableStateOf(
+        goal?.optString("deadline")?:LocalDate.now().plusMonths(6).toString())}
+    var error by remember(id){mutableStateOf("")}
+    EditorDialog(if(id==null)"Nova meta" else "Atualizar meta",onDismiss,{
+        try{onSave(id,name,newMoney(target),newMoney(saved,true),LocalDate.parse(deadline).toString())}
         catch(t:Throwable){error=t.message?:"Confira os campos."}
     },error){
-        Entry("Meta",name,{name=it});Entry("Objetivo (R$)",target,{target=it})
-        Entry("Já guardado (R$)",saved,{saved=it});Entry("Prazo (AAAA-MM-DD)",deadline,{deadline=it})
+        Entry("Meta",name,{name=it})
+        Entry("Objetivo (R$)",target,{target=it})
+        Entry("Já reservado (R$)",saved,{saved=it})
+        Entry("Prazo (AAAA-MM-DD)",deadline,{deadline=it})
+        Text("O valor reservado é informado manualmente. Não cria transferência nem retira dinheiro da conta.",
+            color=Muted,style=MaterialTheme.typography.labelSmall)
     }
 }
 @Composable fun BudgetEditor(data:MunnyDocument,onDismiss:()->Unit,onSave:(String,Long,String)->Unit) {

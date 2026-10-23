@@ -121,10 +121,19 @@ class MunnyDocument private constructor(private val raw: JSONObject) {
         return upsertMovement(MoneyMovement(UUID.randomUUID().toString(),"cardPayment",bill.remaining,date,
             accountId=accountId,status="paid",category="Outros",title="Pagamento · ${card.name}",cardId=card.id,invoiceMonth=bill.month))
     }
-    fun addGoal(name:String,target:Long,saved:Long,deadline:String):MunnyDocument {
-        require(name.isNotBlank()&&target>0&&saved>=0);LocalDate.parse(deadline)
-        return replace("goals",JSONObject().put("id",UUID.randomUUID().toString()).put("name",name.take(100))
-            .put("target",target).put("saved",saved).put("deadline",deadline).put("color","#88AA9A"))
+    fun addGoal(name:String,target:Long,saved:Long,deadline:String):MunnyDocument =
+        upsertGoal(null,name,target,saved,deadline)
+
+    fun upsertGoal(id:String?,name:String,target:Long,saved:Long,deadline:String):MunnyDocument {
+        require(name.isNotBlank()&&target>0L&&saved>=0L) { "Informe valores válidos para a meta." }
+        LocalDate.parse(deadline)
+        val original=objects("goals").firstOrNull { it.optString("id")==id }
+        val goal=JSONObject(original?.toString()?:"{}")
+            .put("id",id?:UUID.randomUUID().toString())
+            .put("name",name.take(100)).put("target",target)
+            .put("saved",saved).put("deadline",deadline)
+            .put("color",original?.optString("color")?:"#88AA9A")
+        return replace("goals",goal)
     }
     fun addBudget(category:String,amount:Long,month:String):MunnyDocument {
         require(category.isNotBlank()&&amount>0&&month.matches(Regex("\\d{4}-\\d{2}")))
