@@ -353,24 +353,8 @@ val monthNow:String get()=YearMonth.now().toString()
                 Row {TextButton(onClick={onEditAccount(account.id)}){Text("Editar")};TextButton(onClick={onDeleteAccount(account.id)}){Text("Excluir",color=Coral)}}
             }
         }
-        item {Text("Cartões e faturas",fontWeight=FontWeight.Bold)}
-        if(cards.isEmpty())item{SheetCard{Text("Nenhum cartão cadastrado.",color=Muted)}}
-        items(cards,key={it.id}) {card ->
-            SheetCard {
-                Text(card.name,fontWeight=FontWeight.Bold)
-                Text("Limite ${safeMoney(card.limit)} · Fecha dia ${card.closing} · Vence dia ${card.due}",color=Muted)
-                val cardBills=bills.filter{it.cardId==card.id&&it.remaining>0}.take(8)
-                cardBills.forEach{bill ->
-                    HorizontalDivider(Modifier.padding(vertical=9.dp),color=Line)
-                    Row(verticalAlignment=Alignment.CenterVertically){
-                        Column(Modifier.weight(1f)){Text("Fatura ${bill.month}",fontWeight=FontWeight.SemiBold)
-                            Text("Vencimento: ${bill.due}",color=Muted,style=MaterialTheme.typography.labelSmall)}
-                        Text(safeMoney(bill.remaining),fontWeight=FontWeight.Bold)
-                    }
-                    TextButton(onClick={onPay("${card.id}:${bill.month}")}){Text("Registrar pagamento")}
-                }
-                Row {TextButton(onClick={onEditCard(card.id)}){Text("Editar")};TextButton(onClick={onDeleteCard(card.id)}){Text("Excluir",color=Coral)}}
-            }
+        item {
+            MunnyCardStack(data,onEdit=onEditCard,onDelete=onDeleteCard,onPay=onPay)
         }
         item{Spacer(Modifier.height(25.dp))}
     }
