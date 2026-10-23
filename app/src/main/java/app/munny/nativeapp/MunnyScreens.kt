@@ -77,6 +77,7 @@ val monthNow:String get()=YearMonth.now().toString()
     val data=vm.data
     var editor by remember { mutableStateOf("") }
     var editId by remember { mutableStateOf<String?>(null) }
+    var editingGoalId by remember { mutableStateOf<String?>(null) }
     var askDelete by remember { mutableStateOf<Pair<String,String>?>(null) }
     var showSnack by remember { mutableStateOf(false) }
     var eventDate by remember { mutableStateOf(today) }
@@ -151,7 +152,8 @@ val monthNow:String get()=YearMonth.now().toString()
                 "accounts" -> AccountsScreen(data,onNewAccount={editor="account";editId=null},onEditAccount={editor="account";editId=it},
                     onNewCard={editor="card";editId=null},onEditCard={editor="card";editId=it},onPay={editor="invoice";editId=it},
                     onDeleteAccount={askDelete="accounts" to it},onDeleteCard={askDelete="cards" to it})
-                "planning" -> PlanningScreen(data,onGoal={editor="goal"},onBudget={editor="budget"})
+                "planning" -> PlanningScreen(data,onGoal={editingGoalId=null;editor="goal"},
+                     onEditGoal={editingGoalId=it;editor="goal"},onBudget={editor="budget"})
                 "agenda" -> MunnyAgendaScreen(data,onNewEvent={eventDate=it;editor="event"})
                 "settings" -> SettingsScreen(vm,onExport=onExport,onImport=onImport)
             }
@@ -167,7 +169,10 @@ val monthNow:String get()=YearMonth.now().toString()
         "account"->AccountEditor(data,editId,onDismiss={editor=""},onSave={id,name,value->if(vm.mutate{it.upsertAccount(id,name,value)})editor=""})
         "card"->CardEditor(data,editId,onDismiss={editor=""},onSave={id,name,value,closing,due->if(vm.mutate{it.upsertCard(id,name,value,closing,due)})editor=""})
         "invoice"->InvoiceEditor(data,editId?:"",onDismiss={editor=""},onPay={card,bill,acc,date->if(vm.mutate{it.payInvoice(card,bill,acc,date)})editor=""})
-        "goal"->GoalEditor(onDismiss={editor=""},onSave={name,target,saved,deadline->if(vm.mutate{it.addGoal(name,target,saved,deadline)})editor=""})
+        "goal"->GoalEditor(data,editingGoalId,onDismiss={editor=""},
+             onSave={id,name,target,saved,deadline->
+                 if(vm.mutate{it.upsertGoal(id,name,target,saved,deadline)})editor=""
+             })
         "budget"->BudgetEditor(data,onDismiss={editor=""},onSave={cat,amount,month->if(vm.mutate{it.addBudget(cat,amount,month)})editor=""})
         "event"->EventEditor(initialDate=eventDate,onDismiss={editor=""},onSave={title,date,time,notes->if(vm.mutate{it.addEvent(title,date,time,notes)})editor=""})
     }
@@ -359,7 +364,8 @@ val monthNow:String get()=YearMonth.now().toString()
         item{Spacer(Modifier.height(25.dp))}
     }
 }
-@Composable fun PlanningScreen(data:MunnyDocument,onGoal:()->Unit,onBudget:()->Unit) {
+@Composable fun PlanningScreen(data:MunnyDocument,onGoal:()->Unit,
+    onEditGoal:(String)->Unit,onBudget:()->Unit) {
     var section by remember { mutableStateOf("health") }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal=17.dp,vertical=10.dp)) {
@@ -406,12 +412,13 @@ val monthNow:String get()=YearMonth.now().toString()
                 modifier=Modifier.fillMaxSize(),
                 contentPadding=PaddingValues(start=17.dp,end=17.dp,bottom=120.dp)
             ) { item { MunnyInvestmentSimulator(data) } }
-            else -> MunnyLegacyPlanningScreen(data,onGoal,onBudget)
+            else -> MunnyLegacyPlanningScreen(data,onGoal,onEditGoal,onBudget)
         }
     }
 }
 
-@Composable private fun MunnyLegacyPlanningScreen(data:MunnyDocument,onGoal:()->Unit,onBudget:()->Unit) {
+@Composable private fun MunnyLegacyPlanningScreen(data:MunnyDocument,onGoal:()->Unit,
+    onEditGoal:(String)->Unit,onBudget:()->Unit) {
     val accounts=data.accounts();val moves=data.movements();val ex=data.exceptions()
     val end=YearMonth.now().atEndOfMonth().toString()
     val estimate=FinanceMath.projected(accounts,data.cards(),moves,ex,end)
@@ -440,13 +447,20 @@ val monthNow:String get()=YearMonth.now().toString()
             Text("Metas",Modifier.weight(1f),fontWeight=FontWeight.Bold)
             TextButton(onClick=onGoal){Text("+ Meta")}
         }}
-        items(data.objects("goals"),key={it.getString("id")}) {goal ->
-            val target=goal.optLong("target");val saved=goal.optLong("saved")
+        val historical=remember(data) {
+            MunnyPlanningMath.health(data.accounts(),data.cards(),data.movements(),
+                data.exceptions()).illustrativeContribution
+        }
+        if(data.objects("goals").isEmpty())item {
             SheetCard {
-                Text(goal.optString("name"),fontWeight=FontWeight.Bold)
-                Spacer(Modifier.height(6.dp));LinearProgressIndicator(progress={if(target>0)(saved.toFloat()/target).coerceIn(0f,1f) else 0f},modifier=Modifier.fillMaxWidth())
-                Spacer(Modifier.height(6.dp));Text("${safeMoney(saved)} de ${safeMoney(target)} · Até ${goal.optString("deadline")}",color=Muted)
+                Text("Sem metas cadastradas.",color=Muted)
+                Text("Crie uma meta para acompanhar o que já reservou e simular aportes mensais.",
+                    color=Muted,style=MaterialTheme.typography.labelSmall)
             }
+        }
+        items(data.objects("goals"),key={it.getString("id")}){goal ->
+            MunnyGoalDashboard(goal,onEdit={onEditGoal(goal.optString("id"))},
+                historicalContribution=historical)
         }
         item {Text("Lançamentos previstos",fontWeight=FontWeight.Bold)}
         items(FinanceMath.occurrences(moves,ex,end).filter{it.status=="planned"&&it.kind!="card"}.take(8),key={it.id}){MovementRow(it)}
