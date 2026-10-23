@@ -423,6 +423,10 @@ val monthNow:String get()=YearMonth.now().toString()
     val end=YearMonth.now().atEndOfMonth().toString()
     val estimate=FinanceMath.projected(accounts,data.cards(),moves,ex,end)
     val consumption=FinanceMath.month(moves,ex,monthNow).consumption
+    val historical=remember(data) {
+        MunnyPlanningMath.health(data.accounts(),data.cards(),data.movements(),
+            data.exceptions()).illustrativeContribution
+    }
     LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
         item {PageHeader("Metas e limites","Orçamentos, objetivos e lançamentos previstos.")}
         item {SheetCard {Text("Saldo projetado no fim do mês",color=Muted)
@@ -447,10 +451,6 @@ val monthNow:String get()=YearMonth.now().toString()
             Text("Metas",Modifier.weight(1f),fontWeight=FontWeight.Bold)
             TextButton(onClick=onGoal){Text("+ Meta")}
         }}
-        val historical=remember(data) {
-            MunnyPlanningMath.health(data.accounts(),data.cards(),data.movements(),
-                data.exceptions()).illustrativeContribution
-        }
         if(data.objects("goals").isEmpty())item {
             SheetCard {
                 Text("Sem metas cadastradas.",color=Muted)
