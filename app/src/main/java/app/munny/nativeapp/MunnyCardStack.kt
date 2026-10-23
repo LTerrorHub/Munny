@@ -92,7 +92,7 @@ object MunnyCardMath {
                 Text("Minha carteira",fontWeight=FontWeight.Bold,
                     style=MaterialTheme.typography.titleMedium,modifier=Modifier.weight(1f))
                 Surface(color=SageSoft,shape=RoundedCornerShape(10.dp)) {
-                    Text("\${cards.size} cartão(ões)",Modifier.padding(horizontal=10.dp,vertical=5.dp),
+                    Text("${cards.size} cartão(ões)",Modifier.padding(horizontal=10.dp,vertical=5.dp),
                         color=Sage,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
                 }
             }
@@ -154,9 +154,9 @@ object MunnyCardMath {
                                     style=MaterialTheme.typography.headlineSmall)
                                 Spacer(Modifier.height(9.dp))
                                 Row(horizontalArrangement=Arrangement.spacedBy(17.dp)) {
-                                    Text("Fecha dia \${card.closing}",color=Color.White.copy(alpha=.9f),
+                                    Text("Fecha dia ${card.closing}",color=Color.White.copy(alpha=.9f),
                                         style=MaterialTheme.typography.labelSmall)
-                                    Text("Vence dia \${card.due}",color=Color.White.copy(alpha=.9f),
+                                    Text("Vence dia ${card.due}",color=Color.White.copy(alpha=.9f),
                                         style=MaterialTheme.typography.labelSmall)
                                 }
                             }
@@ -206,13 +206,13 @@ object MunnyCardMath {
                 style=MaterialTheme.typography.labelSmall)
             HorizontalDivider(color=Line)
             Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                Text("Fechamento: dia \${selected.closing}",color=Muted,
+                Text("Fechamento: dia ${selected.closing}",color=Muted,
                     style=MaterialTheme.typography.bodySmall)
-                Text("Vencimento: dia \${selected.due}",color=Muted,
+                Text("Vencimento: dia ${selected.due}",color=Muted,
                     style=MaterialTheme.typography.bodySmall)
             }
             position.bills.firstOrNull()?.let{invoice->
-                Text("Próxima fatura: \${invoice.due} · \${safeMoney(invoice.remaining)}",
+                Text("Próxima fatura: ${invoice.due} · ${safeMoney(invoice.remaining)}",
                     color=Ink,style=MaterialTheme.typography.bodySmall)
             }
             Text("Disponível estimado = limite cadastrado − faturas abertas (inclusive parcelas futuras). O banco pode considerar autorizações, encargos e outras regras não registradas.",
@@ -223,20 +223,20 @@ object MunnyCardMath {
             }
         }
         SheetCard {
-            Text("Faturas de \${selected.name}",fontWeight=FontWeight.Bold,
+            Text("Faturas de ${selected.name}",fontWeight=FontWeight.Bold,
                 style=MaterialTheme.typography.titleMedium)
             if(position.bills.isEmpty())Text("Nenhuma fatura em aberto.",color=Muted)
             position.bills.take(12).forEach{invoice->
                 HorizontalDivider(color=Line.copy(alpha=.6f))
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text("Fatura \${invoice.month}",fontWeight=FontWeight.SemiBold)
-                        Text("Vence \${invoice.due}",color=Muted,
+                        Text("Fatura ${invoice.month}",fontWeight=FontWeight.SemiBold)
+                        Text("Vence ${invoice.due}",color=Muted,
                             style=MaterialTheme.typography.labelSmall)
                     }
                     Text(safeMoney(invoice.remaining),fontWeight=FontWeight.SemiBold)
                 }
-                TextButton(onClick={onPay("\${selected.id}:\${invoice.month}")}) {
+                TextButton(onClick={onPay("${selected.id}:${invoice.month}")}) {
                     Text("Registrar pagamento")
                 }
             }
@@ -259,16 +259,16 @@ object MunnyCardMath {
                         Text(m.title.ifBlank{if(m.kind=="card")"Compra" else "Pagamento de fatura"},
                             fontWeight=FontWeight.SemiBold,
                             maxLines=1,overflow=TextOverflow.Ellipsis)
-                        Text("\${m.category} · \${m.date} · \${m.invoiceMonth}",
+                        Text("${m.category} · ${m.date} · ${m.invoiceMonth}",
                             color=Muted,style=MaterialTheme.typography.labelSmall)
                     }
-                    Text("\${if(m.kind=="card")"−" else "+"} \${safeMoney(m.amount)}",
+                    Text("${if(m.kind=="card")"−" else "+"} ${safeMoney(m.amount)}",
                         fontWeight=FontWeight.SemiBold,
                         color=if(m.kind=="card")Ink else Sage)
                 }
             }
             if(position.movements.size>18)Text(
-                "Exibidos 18 de \${position.movements.size} lançamentos. Os demais continuam disponíveis em Lançamentos.",
+                "Exibidos 18 de ${position.movements.size} lançamentos. Os demais continuam disponíveis em Lançamentos.",
                 color=Muted,style=MaterialTheme.typography.labelSmall)
         }
     }
