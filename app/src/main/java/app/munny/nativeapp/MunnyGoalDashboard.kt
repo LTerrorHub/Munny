@@ -25,9 +25,9 @@ private fun monthsLabel(n:Int):String {
     val months=n%12
     return when{
         n==0->"agora"
-        years==0->"\${months} mês(es)"
-        months==0->"\${years} ano(s)"
-        else->"\${years} ano(s) e \${months} mês(es)"
+        years==0->"${months} mês(es)"
+        months==0->"${years} ano(s)"
+        else->"${years} ano(s) e ${months} mês(es)"
     }
 }
 
@@ -57,7 +57,7 @@ private fun monthsLabel(n:Int):String {
             Column(Modifier.weight(1f)) {
                 Text(name,fontWeight=FontWeight.Bold,
                     style=MaterialTheme.typography.titleMedium)
-                Text("Prazo registrado: \${deadline}",color=Muted,
+                Text("Prazo registrado: ${deadline}",color=Muted,
                     style=MaterialTheme.typography.labelSmall)
             }
             TextButton(onClick=onEdit) {
@@ -94,7 +94,7 @@ private fun monthsLabel(n:Int):String {
                 Text(safeMoney((target-saved).coerceAtLeast(0L)),
                     fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium,
                     color=Ink)
-                Text("Objetivo: \${safeMoney(target)}",color=Muted,
+                Text("Objetivo: ${safeMoney(target)}",color=Muted,
                     style=MaterialTheme.typography.labelSmall)
             }
         }
@@ -133,7 +133,7 @@ private fun monthsLabel(n:Int):String {
                 Icon(Icons.Default.TipsAndUpdates,contentDescription=null,
                     modifier=Modifier.size(17.dp))
                 Spacer(Modifier.width(6.dp))
-                Text("Simular com margem histórica: \${safeMoney(historicalContribution)}")
+                Text("Simular com margem histórica: ${safeMoney(historicalContribution)}")
             }
         }
         if(!visible) {
@@ -156,7 +156,7 @@ private fun monthsLabel(n:Int):String {
                             style=MaterialTheme.typography.labelSmall)
                         Text(monthsLabel(n),color=Sage,fontWeight=FontWeight.Bold,
                             style=MaterialTheme.typography.titleLarge)
-                        Text("Previsão: \${projected.projectedDate?.month?.getDisplayName(TextStyle.FULL,Locale("pt","BR"))} \${projected.projectedDate?.year}",
+                        Text("Previsão: ${projected.projectedDate?.month?.getDisplayName(TextStyle.FULL,Locale("pt","BR"))} ${projected.projectedDate?.year}",
                             color=Ink,style=MaterialTheme.typography.bodySmall)
                         Text("Rendimento assumido: 0%. Reservas ao fim de cada mês.",
                             color=Muted,style=MaterialTheme.typography.labelSmall)
@@ -175,7 +175,7 @@ private fun monthsLabel(n:Int):String {
                     fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium)
                 val difference=(needed-projected.monthlyContribution).coerceAtLeast(0L)
                 if(difference>0L) Text(
-                    "Isso exigiria \${safeMoney(difference)} a mais por mês do que o aporte que você simulou.",
+                    "Isso exigiria ${safeMoney(difference)} a mais por mês do que o aporte que você simulou.",
                     color=Muted,style=MaterialTheme.typography.bodySmall)
                 else Text("Seu aporte simulado é suficiente para o prazo informado, mantendo as premissas.",
                     color=Sage,style=MaterialTheme.typography.bodySmall)
@@ -189,7 +189,7 @@ private fun monthsLabel(n:Int):String {
                     if(larger>projected.monthlyContribution){
                         val quicker=MunnyGoalMath.calculate(target,saved,larger,deadline)
                         if(quicker.monthsToGoal!=null && quicker.monthsToGoal<n) {
-                            Text("• Guardando \${safeMoney(larger)}/mês, você anteciparia \${n-quicker.monthsToGoal} mês(es).",
+                            Text("• Guardando ${safeMoney(larger)}/mês, você anteciparia ${n-quicker.monthsToGoal} mês(es).",
                                 color=Muted,style=MaterialTheme.typography.bodySmall)
                         }
                     }
