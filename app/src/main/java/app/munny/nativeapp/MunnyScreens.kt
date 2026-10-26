@@ -44,12 +44,13 @@ val monthNow:String get()=YearMonth.now().toString()
         shape=RoundedCornerShape(26.dp),colors=CardDefaults.cardColors(containerColor=Panel),
         border=BorderStroke(1.dp,Line.copy(alpha=.72f)),
         elevation=CardDefaults.cardElevation(defaultElevation=1.dp),
-        content={Column(Modifier.padding(18.dp),content=content)})
+        content={Column(Modifier.padding(21.dp),content=content)})
 }
 @Composable fun PageHeader(title:String,subtitle:String) {
-    Text(title,style=MaterialTheme.typography.headlineSmall)
+    Text(title,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
+    Spacer(Modifier.height(6.dp))
     Text(subtitle,color=Muted,style=MaterialTheme.typography.bodyMedium)
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(19.dp))
 }
 @Composable fun BigMoney(value:Long,highlight:Boolean=true) {
     Text(safeMoney(value),style=MaterialTheme.typography.headlineMedium,color=if(value<0)Coral else if(highlight)Ink else Sage)
@@ -151,7 +152,8 @@ val monthNow:String get()=YearMonth.now().toString()
                     onDelete={askDelete="transactions" to it})
                 "accounts" -> AccountsScreen(data,onNewAccount={editor="account";editId=null},onEditAccount={editor="account";editId=it},
                     onNewCard={editor="card";editId=null},onEditCard={editor="card";editId=it},onPay={editor="invoice";editId=it},
-                    onDeleteAccount={askDelete="accounts" to it},onDeleteCard={askDelete="cards" to it})
+                    onDeleteAccount={askDelete="accounts" to it},onDeleteCard={askDelete="cards" to it},
+                    onEditMovement={editor="movement";editId=it},onDeleteMovement={askDelete="transactions" to it})
                 "planning" -> PlanningScreen(data,onGoal={editingGoalId=null;editor="goal"},
                      onEditGoal={editingGoalId=it;editor="goal"},onBudget={editor="budget"})
                 "agenda" -> MunnyAgendaScreen(data,onNewEvent={eventDate=it;editor="event"})
@@ -178,7 +180,13 @@ val monthNow:String get()=YearMonth.now().toString()
     }
     askDelete?.let{(kind,id)->
         AlertDialog(onDismissRequest={askDelete=null},title={Text("Excluir registro?")},
-            text={Text("Esta ação altera os saldos e pode ser sincronizada com a sua conta. Confira antes de continuar.")},
+            text={Text(when {
+                kind=="transactions" && data.movements().any{it.id==id&&it.kind=="cardPayment"} ->
+                    "Excluir este pagamento fará a fatura voltar a ficar em aberto e devolverá o valor ao saldo da conta utilizada. Confirme apenas se o pagamento foi registrado incorretamente."
+                kind=="transactions" && data.movements().any{it.id==id&&it.kind=="card"} ->
+                    "A compra será removida dos lançamentos, alterando a fatura, o limite do cartão e o consumo. Se for parcelada, somente a parcela selecionada será excluída."
+                else -> "Esta ação altera os saldos e pode ser sincronizada com a sua conta. Confira antes de continuar."
+            })},
             confirmButton={TextButton(onClick={
                 val isUsed=if(kind=="accounts") data.movements().any{it.accountId==id||it.toAccountId==id}
                     else if(kind=="cards")data.movements().any{it.cardId==id} else false
@@ -197,8 +205,8 @@ val monthNow:String get()=YearMonth.now().toString()
     var expanded by remember {mutableStateOf(false)}
     val visible=LocalMoneyVisible.current
     val settingsName=data.settings().optString("name").trim()
-    LazyColumn(contentPadding=PaddingValues(horizontal=16.dp,vertical=17.dp),
-        verticalArrangement=Arrangement.spacedBy(13.dp)) {
+    LazyColumn(contentPadding=PaddingValues(start=17.dp,top=19.dp,end=17.dp,bottom=128.dp),
+        verticalArrangement=Arrangement.spacedBy(18.dp)) {
         item {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -253,11 +261,18 @@ val monthNow:String get()=YearMonth.now().toString()
                 }
             }
         }}
-        item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+        item { MunnyWalletSummary(data,onOpenAccounts=onAccount) }
+        item { Text("Resumo do mês",fontWeight=FontWeight.Bold,
+            style=MaterialTheme.typography.titleMedium,color=Ink) }
+        item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             NumberTile("Entradas do mês",monthly.income,"Recebidos",Modifier.weight(1f),positive=true)
             NumberTile("Gastos do mês",monthly.consumption,"Despesas + cartão",Modifier.weight(1f),positive=false)
         }}
+        item { Text("Evolução financeira",fontWeight=FontWeight.Bold,
+            style=MaterialTheme.typography.titleMedium,color=Ink) }
         item {MonthlyFinancePanel(data)}
+        item { Text("Para onde foi o dinheiro",fontWeight=FontWeight.Bold,
+            style=MaterialTheme.typography.titleMedium,color=Ink) }
         item {CategorySpendingPanel(data)}
         item {SheetCard {
             Row(verticalAlignment=Alignment.CenterVertically) {
@@ -291,7 +306,8 @@ val monthNow:String get()=YearMonth.now().toString()
             fontWeight=FontWeight.SemiBold,color=if(value<0L)Coral else Ink)
     }
 }
-@Composable fun MovementRow(m:MoneyMovement,onEdit:(()->Unit)?=null,onDelete:(()->Unit)?=null){
+@Composable fun MovementRow(m:MoneyMovement,onEdit:(()->Unit)?=null,
+    onDelete:(()->Unit)?=null,data:MunnyDocument?=null){
     SheetCard {
         Row(verticalAlignment=Alignment.CenterVertically){
             Surface(shape=RoundedCornerShape(12.dp),color=if(m.kind=="income")SageSoft else if(m.kind=="card")Lilac else Canvas) {
@@ -304,6 +320,27 @@ val monthNow:String get()=YearMonth.now().toString()
                 val kindName=when(m.kind){"card"->"Cartão";"expense"->"Despesa";"transfer"->"Transferência interna";"cardPayment"->"Fatura paga";else->"Entrada"}
                 Text("${kindName} · ${m.category} · ${m.date} · ${if(m.status=="paid")"Confirmado" else "Previsto"}",
                     color=Muted,style=MaterialTheme.typography.labelSmall)
+                data?.let{doc->
+                    val origin=when {
+                        m.cardId.isNotBlank() -> doc.cards().find{it.id==m.cardId}?.name
+                        m.accountId.isNotBlank() -> doc.accounts().find{it.id==m.accountId}?.name
+                        else -> null
+                    }
+                    val destination=if(m.kind=="transfer")
+                        doc.accounts().find{it.id==m.toAccountId}?.name else null
+                    val detail=when {
+                        destination!=null -> "${origin?:"Conta"} → $destination"
+                        origin!=null && m.kind=="card" && m.invoiceMonth.isNotBlank() ->
+                            "$origin · Fatura ${m.invoiceMonth}"
+                        origin!=null -> origin
+                        else -> ""
+                    }
+                    if(detail.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(detail,color=Muted,style=MaterialTheme.typography.labelSmall,
+                            maxLines=2,overflow=TextOverflow.Ellipsis)
+                    }
+                }
             }
             Text("${if(m.kind=="income")"+" else if(m.kind=="transfer")"⇄" else "−"} ${safeMoney(m.amount)}",
                 color=if(m.kind=="income")Sage else Ink,fontWeight=FontWeight.Bold)
@@ -317,30 +354,151 @@ val monthNow:String get()=YearMonth.now().toString()
     }
 }
 @Composable fun TransactionsScreen(data:MunnyDocument,onNew:()->Unit,onEdit:(String)->Unit,onDelete:(String)->Unit) {
-    val entries=data.movements().sortedByDescending {it.date}
+    val entries=data.movements().sortedWith(compareByDescending<MoneyMovement>{it.date}.thenByDescending{it.id})
     var filter by remember {mutableStateOf("all")}
     var query by remember {mutableStateOf("")}
-    val shown=entries.filter{(filter=="all"||it.kind==filter)&&
-        (query.isBlank()||it.title.contains(query,true)||it.category.contains(query,true))}
-    LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(11.dp)){
-        item {PageHeader("Lançamentos","Entradas, despesas, cartões e transferências.")}
-        item {SpendingTypeDashboard(data,onSelectKind={filter=it})}
-        item {OutlinedTextField(query,{query=it},Modifier.fillMaxWidth(),label={Text("Buscar lançamento")},
-            leadingIcon={Icon(Icons.Default.Search,null)},singleLine=true)}
-        item {Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(6.dp)){
-            listOf("all" to "Todos","income" to "Entradas","expense" to "Despesas","card" to "Cartão","transfer" to "Transferências","cardPayment" to "Fatura paga").forEach { (id,label) ->
-                FilterChip(selected=filter==id,onClick={filter=id},label={Text(label)}) }
+    var source by remember {mutableStateOf("all")}
+    var status by remember {mutableStateOf("all")}
+    var monthFilter by remember {mutableStateOf(false)}
+    var showMix by remember {mutableStateOf(false)}
+    val accounts=data.accounts()
+    val cards=data.cards()
+    val sourceOptions=listOf("all" to "Todas as origens")+
+        accounts.map{("account:"+it.id) to it.name}+
+        cards.map{("card:"+it.id) to it.name}
+    val shown=entries.filter{m->
+        (filter=="all"||m.kind==filter) &&
+        (status=="all"||m.status==status) &&
+        (!monthFilter||m.date.startsWith(monthNow)) &&
+        (source=="all"||
+            (source.startsWith("account:") &&
+                (m.accountId==source.removePrefix("account:")||
+                    m.toAccountId==source.removePrefix("account:"))) ||
+            (source.startsWith("card:") && m.cardId==source.removePrefix("card:"))) &&
+        (query.isBlank()||m.title.contains(query,true)||m.category.contains(query,true))
+    }
+    val incoming=shown.filter{it.kind=="income"&&it.status=="paid"}.sumOf{it.amount}
+    val expenses=shown.filter{it.kind=="expense"&&it.status=="paid"}.sumOf{it.amount}
+    val cardConsumption=shown.filter{it.kind=="card"}.sumOf{it.amount}
+    LazyColumn(
+        contentPadding=PaddingValues(start=17.dp,top=18.dp,end=17.dp,bottom=128.dp),
+        verticalArrangement=Arrangement.spacedBy(16.dp)
+    ){
+        item {PageHeader("Lançamentos","Consulte por tipo, conta, cartão, período e situação.")}
+        item {SheetCard(Modifier.fillMaxWidth()) {
+            Text("Visão dos registros filtrados",fontWeight=FontWeight.Bold,
+                style=MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(13.dp))
+            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+                Column(Modifier.weight(1f)) {
+                    Text("Entradas recebidas",color=Muted,style=MaterialTheme.typography.labelSmall)
+                    Spacer(Modifier.height(5.dp))
+                    Text(safeMoney(incoming),color=Sage,fontWeight=FontWeight.Bold,
+                        style=MaterialTheme.typography.titleMedium,maxLines=1)
+                }
+                Column(Modifier.weight(1f)) {
+                    Text("Consumo registrado",color=Muted,style=MaterialTheme.typography.labelSmall)
+                    Spacer(Modifier.height(5.dp))
+                    Text(safeMoney(expenses+cardConsumption),color=Ink,fontWeight=FontWeight.Bold,
+                        style=MaterialTheme.typography.titleMedium,maxLines=1)
+                }
+            }
+            Spacer(Modifier.height(11.dp))
+            Text("Consumo = despesas diretas pagas + compras em cartão. Pagamentos de fatura e transferências não são somados novamente.",
+                color=Muted,style=MaterialTheme.typography.labelSmall)
         }}
-        if(shown.isEmpty())item{SheetCard{Text("Nenhum lançamento encontrado.")}}
-        items(shown,key={it.id}){MovementRow(it,onEdit={onEdit(it.id)},onDelete={onDelete(it.id)})}
-        item{Spacer(Modifier.height(60.dp))}
+        item {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Composição dos gastos",fontWeight=FontWeight.Bold)
+                    Text("Mini dashboard por meio",color=Muted,
+                        style=MaterialTheme.typography.labelSmall)
+                }
+                TextButton(onClick={showMix=!showMix}) {
+                    Text(if(showMix)"Ocultar" else "Exibir")
+                    Icon(if(showMix)Icons.Default.ExpandLess else Icons.Default.ExpandMore,null)
+                }
+            }
+        }
+        if(showMix)item { SpendingTypeDashboard(data,onSelectKind={filter=it}) }
+        item {
+            OutlinedTextField(query,{query=it},
+                Modifier.fillMaxWidth(),label={Text("Pesquisar descrição ou categoria")},
+                leadingIcon={Icon(Icons.Default.Search,null)},singleLine=true,
+                shape=RoundedCornerShape(18.dp))
+        }
+        item {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Text("Período",Modifier.weight(1f),fontWeight=FontWeight.SemiBold)
+                FilterChip(selected=!monthFilter,onClick={monthFilter=false},label={Text("Todo histórico")})
+                Spacer(Modifier.width(7.dp))
+                FilterChip(selected=monthFilter,onClick={monthFilter=true},label={Text("Este mês")})
+            }
+        }
+        item {
+            Text("Tipo de lançamento",fontWeight=FontWeight.SemiBold)
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                listOf("all" to "Todos","income" to "Entradas","expense" to "Despesas",
+                    "card" to "Cartão","transfer" to "Transferências",
+                    "cardPayment" to "Fatura paga").forEach{(id,label)->
+                    FilterChip(selected=filter==id,onClick={filter=id},label={Text(label)})
+                }
+            }
+        }
+        item {
+            Text("Conta ou cartão",fontWeight=FontWeight.SemiBold)
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                sourceOptions.forEach{(id,label)->
+                    FilterChip(selected=source==id,onClick={source=id},
+                        label={Text(label,maxLines=1)})
+                }
+            }
+        }
+        item {
+            Text("Situação",fontWeight=FontWeight.SemiBold)
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                listOf("all" to "Todas","paid" to "Confirmados","planned" to "Previstos")
+                    .forEach{(id,label)->
+                        FilterChip(selected=status==id,onClick={status=id},
+                            label={Text(label)})
+                    }
+            }
+        }
+        item {
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+                Text("${shown.size} lançamento(s) encontrados",fontWeight=FontWeight.Bold,
+                    modifier=Modifier.weight(1f))
+                TextButton(onClick=onNew) {Icon(Icons.Default.Add,null);Text("Novo")}
+            }
+        }
+        if(shown.isEmpty())item {SheetCard{Text("Nenhum lançamento encontrado. Ajuste os filtros.",color=Muted)}}
+        shown.groupBy{it.date}.forEach{(date,movements)->
+            item(key="date:${date}") {
+                Text(date,color=Muted,fontWeight=FontWeight.SemiBold,
+                    style=MaterialTheme.typography.labelMedium,
+                    modifier=Modifier.padding(top=5.dp,bottom=1.dp))
+            }
+            items(movements,key={it.id}){movement->
+                MovementRow(movement,onEdit={onEdit(movement.id)},
+                    onDelete={onDelete(movement.id)},data=data)
+            }
+        }
     }
 }
 @Composable fun AccountsScreen(data:MunnyDocument,onNewAccount:()->Unit,onEditAccount:(String)->Unit,
-    onNewCard:()->Unit,onEditCard:(String)->Unit,onPay:(String)->Unit,onDeleteAccount:(String)->Unit,onDeleteCard:(String)->Unit) {
+    onNewCard:()->Unit,onEditCard:(String)->Unit,onPay:(String)->Unit,
+    onDeleteAccount:(String)->Unit,onDeleteCard:(String)->Unit,
+    onEditMovement:(String)->Unit,onDeleteMovement:(String)->Unit) {
     val accounts=data.accounts();val cards=data.cards();val moves=data.movements();val ex=data.exceptions()
     val bills=FinanceMath.invoices(cards,moves,ex,LocalDate.now().plusYears(2).toString())
-    LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
+    LazyColumn(contentPadding=PaddingValues(start=17.dp,top=18.dp,end=17.dp,bottom=116.dp),
+        verticalArrangement=Arrangement.spacedBy(17.dp)){
         item {PageHeader("Contas e cartões","Dinheiro que você tem e compromissos separados.")}
         item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
             Button(onClick=onNewAccount){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("Conta")}
@@ -359,7 +517,8 @@ val monthNow:String get()=YearMonth.now().toString()
             }
         }
         item {
-            MunnyCardStack(data,onEdit=onEditCard,onDelete=onDeleteCard,onPay=onPay)
+            MunnyCardStack(data,onEdit=onEditCard,onDelete=onDeleteCard,onPay=onPay,
+                onEditMovement=onEditMovement,onDeleteMovement=onDeleteMovement)
         }
         item{Spacer(Modifier.height(25.dp))}
     }

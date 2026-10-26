@@ -61,10 +61,13 @@ object MunnyCardMath {
     data:MunnyDocument,
     onEdit:(String)->Unit,
     onDelete:(String)->Unit,
-    onPay:(String)->Unit
+    onPay:(String)->Unit,
+    onEditMovement:(String)->Unit,
+    onDeleteMovement:(String)->Unit
 ) {
     val cards=data.cards()
     val visible=LocalMoneyVisible.current
+    var showAllMovements by remember { mutableStateOf(false) }
     var chosen by remember(cards.map{it.id}){mutableStateOf(cards.firstOrNull()?.id?:"")}
     if(cards.isEmpty()) {
         SheetCard {
@@ -251,7 +254,8 @@ object MunnyCardMath {
             Text("Compras, parcelas e pagamentos vinculados",color=Muted,
                 style=MaterialTheme.typography.labelSmall)
             if(position.movements.isEmpty())Text("Ainda não há lançamentos neste cartão.",color=Muted)
-            position.movements.take(18).forEach{m->
+            val visibleMovements=if(showAllMovements)position.movements else position.movements.take(8)
+            visibleMovements.forEach{m->
                 HorizontalDivider(color=Line.copy(alpha=.55f))
                 Row(Modifier.fillMaxWidth().padding(vertical=8.dp),
                     verticalAlignment=Alignment.CenterVertically) {
@@ -266,9 +270,35 @@ object MunnyCardMath {
                         fontWeight=FontWeight.SemiBold,
                         color=if(m.kind=="card")Ink else Sage)
                 }
+                Row(Modifier.fillMaxWidth(),
+                    horizontalArrangement=Arrangement.End,
+                    verticalAlignment=Alignment.CenterVertically) {
+                    if(m.kind=="card") TextButton(onClick={onEditMovement(m.id)},
+                        contentPadding=PaddingValues(horizontal=12.dp,vertical=4.dp)) {
+                        Icon(Icons.Default.Edit,contentDescription=null,
+                            modifier=Modifier.size(16.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Editar",style=MaterialTheme.typography.labelSmall)
+                    }
+                    TextButton(onClick={onDeleteMovement(m.id)},
+                        contentPadding=PaddingValues(horizontal=12.dp,vertical=4.dp)) {
+                        Icon(Icons.Default.DeleteOutline,contentDescription=null,
+                            modifier=Modifier.size(16.dp),tint=Coral)
+                        Spacer(Modifier.width(5.dp))
+                        Text("Excluir",color=Coral,
+                            style=MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
-            if(position.movements.size>18)Text(
-                "Exibidos 18 de ${position.movements.size} lançamentos. Os demais continuam disponíveis em Lançamentos.",
+            if(position.movements.size>8) {
+                TextButton(onClick={showAllMovements=!showAllMovements}) {
+                    Text(if(showAllMovements)"Mostrar apenas os recentes"
+                        else "Ver todos os ${position.movements.size} lançamentos")
+                    Icon(if(showAllMovements)Icons.Default.ExpandLess
+                        else Icons.Default.ExpandMore,contentDescription=null)
+                }
+            }
+            Text("Excluir uma compra recalcula a fatura e o limite estimado. Excluir um pagamento de fatura também altera o saldo da conta associada.",
                 color=Muted,style=MaterialTheme.typography.labelSmall)
         }
     }
