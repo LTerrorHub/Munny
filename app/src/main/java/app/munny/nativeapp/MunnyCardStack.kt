@@ -266,21 +266,27 @@ object MunnyCardMath {
                         Text("${m.category} · ${m.date} · ${m.invoiceMonth}",
                             color=Muted,style=MaterialTheme.typography.labelSmall)
                     }
-                    Column(horizontalAlignment=Alignment.End) {
-                        Text("${if(m.kind=="card")"−" else "+"} ${safeMoney(m.amount)}",
-                            fontWeight=FontWeight.SemiBold,
-                            color=if(m.kind=="card")Ink else Sage)
-                        Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                            if(m.kind=="card") TextButton(onClick={onEditMovement(m.id)},
-                                contentPadding=PaddingValues(horizontal=5.dp,vertical=2.dp)) {
-                                Text("Editar",style=MaterialTheme.typography.labelSmall)
-                            }
-                            TextButton(onClick={onDeleteMovement(m.id)},
-                                contentPadding=PaddingValues(horizontal=5.dp,vertical=2.dp)) {
-                                Text("Excluir",color=Coral,
-                                    style=MaterialTheme.typography.labelSmall)
-                            }
-                        }
+                    Text("${if(m.kind=="card")"−" else "+"} ${safeMoney(m.amount)}",
+                        fontWeight=FontWeight.SemiBold,
+                        color=if(m.kind=="card")Ink else Sage)
+                }
+                Row(Modifier.fillMaxWidth(),
+                    horizontalArrangement=Arrangement.End,
+                    verticalAlignment=Alignment.CenterVertically) {
+                    if(m.kind=="card") TextButton(onClick={onEditMovement(m.id)},
+                        contentPadding=PaddingValues(horizontal=12.dp,vertical=4.dp)) {
+                        Icon(Icons.Default.Edit,contentDescription=null,
+                            modifier=Modifier.size(16.dp))
+                        Spacer(Modifier.width(5.dp))
+                        Text("Editar",style=MaterialTheme.typography.labelSmall)
+                    }
+                    TextButton(onClick={onDeleteMovement(m.id)},
+                        contentPadding=PaddingValues(horizontal=12.dp,vertical=4.dp)) {
+                        Icon(Icons.Default.DeleteOutline,contentDescription=null,
+                            modifier=Modifier.size(16.dp),tint=Coral)
+                        Spacer(Modifier.width(5.dp))
+                        Text("Excluir",color=Coral,
+                            style=MaterialTheme.typography.labelSmall)
                     }
                 }
             }
