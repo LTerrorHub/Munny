@@ -320,6 +320,27 @@ val monthNow:String get()=YearMonth.now().toString()
                 val kindName=when(m.kind){"card"->"Cartão";"expense"->"Despesa";"transfer"->"Transferência interna";"cardPayment"->"Fatura paga";else->"Entrada"}
                 Text("${kindName} · ${m.category} · ${m.date} · ${if(m.status=="paid")"Confirmado" else "Previsto"}",
                     color=Muted,style=MaterialTheme.typography.labelSmall)
+                data?.let{doc->
+                    val origin=when {
+                        m.cardId.isNotBlank() -> doc.cards().find{it.id==m.cardId}?.name
+                        m.accountId.isNotBlank() -> doc.accounts().find{it.id==m.accountId}?.name
+                        else -> null
+                    }
+                    val destination=if(m.kind=="transfer")
+                        doc.accounts().find{it.id==m.toAccountId}?.name else null
+                    val detail=when {
+                        destination!=null -> "${origin?:"Conta"} → $destination"
+                        origin!=null && m.kind=="card" && m.invoiceMonth.isNotBlank() ->
+                            "$origin · Fatura ${m.invoiceMonth}"
+                        origin!=null -> origin
+                        else -> ""
+                    }
+                    if(detail.isNotBlank()) {
+                        Spacer(Modifier.height(6.dp))
+                        Text(detail,color=Muted,style=MaterialTheme.typography.labelSmall,
+                            maxLines=2,overflow=TextOverflow.Ellipsis)
+                    }
+                }
             }
             Text("${if(m.kind=="income")"+" else if(m.kind=="transfer")"⇄" else "−"} ${safeMoney(m.amount)}",
                 color=if(m.kind=="income")Sage else Ink,fontWeight=FontWeight.Bold)
@@ -438,14 +459,14 @@ val monthNow:String get()=YearMonth.now().toString()
             }
         }
         item {
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Text("Situação",fontWeight=FontWeight.SemiBold,
-                    modifier=Modifier.weight(1f))
-                listOf("all" to "Todas","paid" to "Confirmado","planned" to "Previsto")
+            Text("Situação",fontWeight=FontWeight.SemiBold)
+            Spacer(Modifier.height(7.dp))
+            Row(Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                listOf("all" to "Todas","paid" to "Confirmados","planned" to "Previstos")
                     .forEach{(id,label)->
                         FilterChip(selected=status==id,onClick={status=id},
                             label={Text(label)})
-                        Spacer(Modifier.width(5.dp))
                     }
             }
         }
