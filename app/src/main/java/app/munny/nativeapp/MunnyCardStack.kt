@@ -271,7 +271,7 @@ object MunnyCardMath {
                             fontWeight=FontWeight.SemiBold,
                             color=if(m.kind=="card")Ink else Sage)
                         Row(horizontalArrangement=Arrangement.spacedBy(4.dp)) {
-                            TextButton(onClick={onEditMovement(m.id)},
+                            if(m.kind=="card") TextButton(onClick={onEditMovement(m.id)},
                                 contentPadding=PaddingValues(horizontal=5.dp,vertical=2.dp)) {
                                 Text("Editar",style=MaterialTheme.typography.labelSmall)
                             }
