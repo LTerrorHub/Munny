@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 
 /** Exact per-account bank balances. Transfers cancel in the consolidated total. */
 @Composable fun MunnyWalletSummary(data:MunnyDocument,onOpenAccounts:()->Unit) {
+    val visible=LocalMoneyVisible.current
     val wallets=data.accounts()
     val entries=data.movements()
     val exceptions=data.exceptions()
@@ -62,10 +63,12 @@ import androidx.compose.ui.unit.dp
                 Spacer(Modifier.height(7.dp))
                 val share=if(positiveSum<=0L)0f
                     else (amount.coerceAtLeast(0L).toDouble()/positiveSum).toFloat().coerceIn(0f,1f)
-                LinearProgressIndicator(progress={share},
+                if(visible) LinearProgressIndicator(progress={share},
                     color=if(amount<0L)Coral else Sage,
                     trackColor=MaterialTheme.colorScheme.surfaceVariant,
                     modifier=Modifier.fillMaxWidth().height(7.dp))
+                else Text("Participação oculta por privacidade",color=Muted,
+                    style=MaterialTheme.typography.labelSmall)
             }
             if(positions.size>3) {
                 Spacer(Modifier.height(10.dp))
