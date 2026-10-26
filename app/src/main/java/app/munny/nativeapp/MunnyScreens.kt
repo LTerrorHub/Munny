@@ -44,12 +44,13 @@ val monthNow:String get()=YearMonth.now().toString()
         shape=RoundedCornerShape(26.dp),colors=CardDefaults.cardColors(containerColor=Panel),
         border=BorderStroke(1.dp,Line.copy(alpha=.72f)),
         elevation=CardDefaults.cardElevation(defaultElevation=1.dp),
-        content={Column(Modifier.padding(18.dp),content=content)})
+        content={Column(Modifier.padding(21.dp),content=content)})
 }
 @Composable fun PageHeader(title:String,subtitle:String) {
-    Text(title,style=MaterialTheme.typography.headlineSmall)
+    Text(title,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
+    Spacer(Modifier.height(6.dp))
     Text(subtitle,color=Muted,style=MaterialTheme.typography.bodyMedium)
-    Spacer(Modifier.height(16.dp))
+    Spacer(Modifier.height(19.dp))
 }
 @Composable fun BigMoney(value:Long,highlight:Boolean=true) {
     Text(safeMoney(value),style=MaterialTheme.typography.headlineMedium,color=if(value<0)Coral else if(highlight)Ink else Sage)
@@ -151,7 +152,8 @@ val monthNow:String get()=YearMonth.now().toString()
                     onDelete={askDelete="transactions" to it})
                 "accounts" -> AccountsScreen(data,onNewAccount={editor="account";editId=null},onEditAccount={editor="account";editId=it},
                     onNewCard={editor="card";editId=null},onEditCard={editor="card";editId=it},onPay={editor="invoice";editId=it},
-                    onDeleteAccount={askDelete="accounts" to it},onDeleteCard={askDelete="cards" to it})
+                    onDeleteAccount={askDelete="accounts" to it},onDeleteCard={askDelete="cards" to it},
+                    onEditMovement={editor="movement";editId=it},onDeleteMovement={askDelete="transactions" to it})
                 "planning" -> PlanningScreen(data,onGoal={editingGoalId=null;editor="goal"},
                      onEditGoal={editingGoalId=it;editor="goal"},onBudget={editor="budget"})
                 "agenda" -> MunnyAgendaScreen(data,onNewEvent={eventDate=it;editor="event"})
@@ -178,7 +180,13 @@ val monthNow:String get()=YearMonth.now().toString()
     }
     askDelete?.let{(kind,id)->
         AlertDialog(onDismissRequest={askDelete=null},title={Text("Excluir registro?")},
-            text={Text("Esta ação altera os saldos e pode ser sincronizada com a sua conta. Confira antes de continuar.")},
+            text={Text(when {
+                kind=="transactions" && data.movements().any{it.id==id&&it.kind=="cardPayment"} ->
+                    "Excluir este pagamento fará a fatura voltar a ficar em aberto e devolverá o valor ao saldo da conta utilizada. Confirme apenas se o pagamento foi registrado incorretamente."
+                kind=="transactions" && data.movements().any{it.id==id&&it.kind=="card"} ->
+                    "A compra será removida dos lançamentos, alterando a fatura, o limite do cartão e o consumo. Se for parcelada, somente a parcela selecionada será excluída."
+                else -> "Esta ação altera os saldos e pode ser sincronizada com a sua conta. Confira antes de continuar."
+            })},
             confirmButton={TextButton(onClick={
                 val isUsed=if(kind=="accounts") data.movements().any{it.accountId==id||it.toAccountId==id}
                     else if(kind=="cards")data.movements().any{it.cardId==id} else false
@@ -197,8 +205,8 @@ val monthNow:String get()=YearMonth.now().toString()
     var expanded by remember {mutableStateOf(false)}
     val visible=LocalMoneyVisible.current
     val settingsName=data.settings().optString("name").trim()
-    LazyColumn(contentPadding=PaddingValues(horizontal=16.dp,vertical=17.dp),
-        verticalArrangement=Arrangement.spacedBy(13.dp)) {
+    LazyColumn(contentPadding=PaddingValues(start=17.dp,top=19.dp,end=17.dp,bottom=128.dp),
+        verticalArrangement=Arrangement.spacedBy(18.dp)) {
         item {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -253,11 +261,18 @@ val monthNow:String get()=YearMonth.now().toString()
                 }
             }
         }}
-        item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
+        item { MunnyWalletSummary(data,onOpenAccounts=onAccount) }
+        item { Text("Resumo do mês",fontWeight=FontWeight.Bold,
+            style=MaterialTheme.typography.titleMedium,color=Ink) }
+        item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
             NumberTile("Entradas do mês",monthly.income,"Recebidos",Modifier.weight(1f),positive=true)
             NumberTile("Gastos do mês",monthly.consumption,"Despesas + cartão",Modifier.weight(1f),positive=false)
         }}
+        item { Text("Evolução financeira",fontWeight=FontWeight.Bold,
+            style=MaterialTheme.typography.titleMedium,color=Ink) }
         item {MonthlyFinancePanel(data)}
+        item { Text("Para onde foi o dinheiro",fontWeight=FontWeight.Bold,
+            style=MaterialTheme.typography.titleMedium,color=Ink) }
         item {CategorySpendingPanel(data)}
         item {SheetCard {
             Row(verticalAlignment=Alignment.CenterVertically) {
@@ -337,10 +352,13 @@ val monthNow:String get()=YearMonth.now().toString()
     }
 }
 @Composable fun AccountsScreen(data:MunnyDocument,onNewAccount:()->Unit,onEditAccount:(String)->Unit,
-    onNewCard:()->Unit,onEditCard:(String)->Unit,onPay:(String)->Unit,onDeleteAccount:(String)->Unit,onDeleteCard:(String)->Unit) {
+    onNewCard:()->Unit,onEditCard:(String)->Unit,onPay:(String)->Unit,
+    onDeleteAccount:(String)->Unit,onDeleteCard:(String)->Unit,
+    onEditMovement:(String)->Unit,onDeleteMovement:(String)->Unit) {
     val accounts=data.accounts();val cards=data.cards();val moves=data.movements();val ex=data.exceptions()
     val bills=FinanceMath.invoices(cards,moves,ex,LocalDate.now().plusYears(2).toString())
-    LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
+    LazyColumn(contentPadding=PaddingValues(start=17.dp,top=18.dp,end=17.dp,bottom=116.dp),
+        verticalArrangement=Arrangement.spacedBy(17.dp)){
         item {PageHeader("Contas e cartões","Dinheiro que você tem e compromissos separados.")}
         item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
             Button(onClick=onNewAccount){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("Conta")}
@@ -359,7 +377,8 @@ val monthNow:String get()=YearMonth.now().toString()
             }
         }
         item {
-            MunnyCardStack(data,onEdit=onEditCard,onDelete=onDeleteCard,onPay=onPay)
+            MunnyCardStack(data,onEdit=onEditCard,onDelete=onDeleteCard,onPay=onPay,
+                onEditMovement=onEditMovement,onDeleteMovement=onDeleteMovement)
         }
         item{Spacer(Modifier.height(25.dp))}
     }
