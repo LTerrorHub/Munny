@@ -142,8 +142,19 @@ class MunnyDocument private constructor(private val raw: JSONObject) {
             .put("category",category).put("amount",amount).put("month",month))
     }
     fun addEvent(title:String,date:String,time:String,notes:String):MunnyDocument {
-        require(title.isNotBlank());LocalDate.parse(date)
-        return replace("events",JSONObject().put("id",UUID.randomUUID().toString()).put("title",title.take(150))
-            .put("date",date).put("time",time).put("notes",notes.take(2000)).put("repeat","none"))
+        return upsertEvent(null,title,date,time,notes)
+    }
+    /** Past and future dates are both valid; keep identity and unknown fields on edit. */
+    fun upsertEvent(id:String?,title:String,date:String,time:String,notes:String):MunnyDocument {
+        require(title.isNotBlank()) { "Informe o nome do evento." }
+        LocalDate.parse(date)
+        require(time.isBlank() || time.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d"))) { "Use um horário válido (HH:MM)." }
+        val current=objects("events").find { it.optString("id")==id }
+        require(id==null || current!=null) { "Evento não encontrado." }
+        val event=JSONObject(current?.toString()?:"{}")
+            .put("id",id?:UUID.randomUUID().toString()).put("title",title.trim().take(150))
+            .put("date",date).put("time",time).put("notes",notes.take(2000))
+        if(!event.has("repeat"))event.put("repeat","none")
+        return replace("events",event)
     }
 }

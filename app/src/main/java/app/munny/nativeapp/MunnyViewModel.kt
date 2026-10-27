@@ -23,6 +23,25 @@ class MunnyViewModel(application:Application):AndroidViewModel(application) {
         private set
     var themeMode by androidx.compose.runtime.mutableStateOf(displayPrefs.getString("theme_mode","system") ?: "system")
         private set
+    var themeTone by androidx.compose.runtime.mutableStateOf(displayPrefs.getString("theme_tone","mint") ?: "mint")
+        private set
+    var homeOrder by androidx.compose.runtime.mutableStateOf(
+        HomeModules.normalize(displayPrefs.getString("home_order","")!!.split(",")))
+        private set
+    var homeHidden by androidx.compose.runtime.mutableStateOf(
+        displayPrefs.getString("home_hidden","")!!.split(",").filter { it in HomeModules.ids }.toSet())
+        private set
+    fun updateThemeTone(tone:String) {
+        if(tone !in setOf("mint","ocean","violet","amber"))return
+        themeTone=tone
+        displayPrefs.edit().putString("theme_tone",tone).apply()
+    }
+    fun updateHomeLayout(order:List<String>,hidden:Set<String>) {
+        homeOrder=HomeModules.normalize(order)
+        homeHidden=hidden.intersect(HomeModules.ids.toSet())
+        displayPrefs.edit().putString("home_order",homeOrder.joinToString(","))
+            .putString("home_hidden",homeHidden.joinToString(",")).apply()
+    }
     // Widgets never display monetary values until the user explicitly opts in.
     var widgetAmountsVisible by androidx.compose.runtime.mutableStateOf(
         displayPrefs.getBoolean("widget_amounts_visible",false)

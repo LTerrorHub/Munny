@@ -1,4 +1,4 @@
-name: Munny 2.7 - UX Carteiras e Lancamentos
+name: Munny 2.8 - HUD Temas e Agenda
 on:
   workflow_dispatch:
   pull_request:
@@ -61,7 +61,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: Munny-2.7-debug-validacao
+          name: Munny-2.8-debug-validacao
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
 
@@ -69,7 +69,7 @@ jobs:
         if: env.SIGNED_RELEASE_AVAILABLE == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Munny-2.7-release-assinado
+          name: Munny-2.8-release-assinado
           path: app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
@@ -77,6 +77,6 @@ jobs:
         if: env.SIGNED_RELEASE_AVAILABLE != 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: Munny-2.7-release-unsigned
+          name: Munny-2.8-release-unsigned
           path: app/build/outputs/apk/release/*unsigned.apk
           if-no-files-found: error

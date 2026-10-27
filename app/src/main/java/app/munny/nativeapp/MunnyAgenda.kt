@@ -21,9 +21,11 @@ import java.time.format.TextStyle
 import java.util.Locale
 
 /** Separate native agenda: month calendar, selected-day events and event registration. */
-@Composable fun MunnyAgendaScreen(data:MunnyDocument,onNewEvent:(String)->Unit) {
-    var selected by remember { mutableStateOf(LocalDate.now()) }
-    var month by remember { mutableStateOf(YearMonth.from(selected)) }
+@Composable fun MunnyAgendaScreen(data:MunnyDocument,onNewEvent:(String)->Unit,onEditEvent:(String)->Unit) {
+    var selectedDate by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(today) }
+    val selected=LocalDate.parse(selectedDate)
+    var monthValue by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(YearMonth.from(selected).toString()) }
+    val month=YearMonth.parse(monthValue)
     val events=data.objects("events").sortedWith(compareBy<JSONObject>({it.optString("date")},{it.optString("time")}))
     val eventDays=events.map{it.optString("date")}.toSet()
     val start=month.atDay(1).minusDays((month.atDay(1).dayOfWeek.value-1).toLong())
@@ -33,11 +35,17 @@ import java.util.Locale
         verticalArrangement=Arrangement.spacedBy(13.dp)) {
         item {
             Text("Agenda",style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
-            Text("Seus eventos organizados por data, sem misturar com lançamentos.",color=Muted)
+            Text("Consulte e edite eventos de qualquer data, passada ou futura.",color=Muted)
         }
+        item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
+            TextButton(onClick={selectedDate=today;monthValue=YearMonth.now().toString()}){Text("Hoje")}
+        }}
         item { SheetCard(Modifier.fillMaxWidth()) {
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                IconButton(onClick={month=month.minusMonths(1)}) {
+                IconButton(onClick={
+                    val next=month.minusMonths(1);monthValue=next.toString()
+                    selectedDate=next.atDay(minOf(selected.dayOfMonth,next.lengthOfMonth())).toString()
+                }) {
                     Icon(Icons.Default.ChevronLeft,"Mês anterior",tint=Sage)
                 }
                 Column(Modifier.weight(1f),horizontalAlignment=Alignment.CenterHorizontally) {
@@ -46,7 +54,10 @@ import java.util.Locale
                         fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium)
                     Text("Toque em um dia para visualizar",color=Muted,style=MaterialTheme.typography.labelSmall)
                 }
-                IconButton(onClick={month=month.plusMonths(1)}) {
+                IconButton(onClick={
+                    val next=month.plusMonths(1);monthValue=next.toString()
+                    selectedDate=next.atDay(minOf(selected.dayOfMonth,next.lengthOfMonth())).toString()
+                }) {
                     Icon(Icons.Default.ChevronRight,"Próximo mês",tint=Sage)
                 }
             }
@@ -66,7 +77,7 @@ import java.util.Locale
                         val within=YearMonth.from(day)==month
                         val hasEvent=day.toString() in eventDays
                         val isToday=day==LocalDate.now()
-                        Surface(onClick={selected=day;month=YearMonth.from(day)},
+                        Surface(onClick={selectedDate=day.toString();monthValue=YearMonth.from(day).toString()},
                             modifier=Modifier.weight(1f).height(46.dp),
                             shape=RoundedCornerShape(12.dp),
                             color=when {
@@ -119,6 +130,7 @@ import java.util.Locale
                 }
                 if(event.optString("notes").isNotBlank())
                     Text(event.optString("notes"),color=Muted,style=MaterialTheme.typography.bodySmall)
+                TextButton(onClick={onEditEvent(event.optString("id"))}){Icon(Icons.Default.Edit,null,Modifier.size(16.dp));Spacer(Modifier.width(6.dp));Text("Editar evento")}
             }
         }
         if(upcoming.isNotEmpty()) {
@@ -129,6 +141,7 @@ import java.util.Locale
                 SheetCard {
                     Text(event.optString("title"),fontWeight=FontWeight.SemiBold)
                     Text(event.optString("date")+" · "+event.optString("time"),color=Muted)
+                    TextButton(onClick={onEditEvent(event.optString("id"))}){Text("Editar evento")}
                 }
             }
         }

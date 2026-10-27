@@ -6,6 +6,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,10 +90,10 @@ private fun newMoney(v:String,allowZero:Boolean=false):Long {
         Entry("Dia do vencimento (1 a 31)",due,{due=it})
     }
 }
-@Composable fun MovementEditor(data:MunnyDocument,id:String?,onDismiss:()->Unit,onSave:(MoneyMovement,String,Int)->Unit) {
+@Composable fun MovementEditor(data:MunnyDocument,id:String?,onDismiss:()->Unit,onSave:(MoneyMovement,String,Int)->Unit,initialKind:String="expense") {
     val old=data.movements().find{it.id==id}
     val accounts=data.accounts();val cards=data.cards()
-    var kind by remember(id){mutableStateOf(old?.kind?:"expense")}
+    var kind by remember(id){mutableStateOf(old?.kind?:initialKind)}
     var title by remember(id){mutableStateOf(old?.title?:"")}
     var amount by remember(id){mutableStateOf(old?.amount?.let{String.format(java.util.Locale("pt","BR"),"%.2f",it/100.0)}?:"")}
     var date by remember(id){mutableStateOf(old?.date?:today)}
@@ -198,15 +200,37 @@ private fun newMoney(v:String,allowZero:Boolean=false):Long {
         Entry("Limite (R$)",amount,{amount=it});Entry("Mês (AAAA-MM)",month,{month=it})
     }
 }
-@Composable fun EventEditor(initialDate:String=today,onDismiss:()->Unit,onSave:(String,String,String,String)->Unit) {
-    var title by remember{mutableStateOf("")};var date by remember(initialDate){mutableStateOf(initialDate)}
-    var time by remember{mutableStateOf("09:00")};var notes by remember{mutableStateOf("")}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable fun DateEntry(label:String,value:String,onChange:(String)->Unit) {
+    var open by remember{mutableStateOf(false)}
+    OutlinedTextField(value=runCatching{LocalDate.parse(value).format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"))}.getOrDefault(value),
+        onValueChange={},readOnly=true,label={Text(label)},singleLine=true,modifier=Modifier.fillMaxWidth(),
+        trailingIcon={IconButton(onClick={open=true}){Icon(Icons.Default.CalendarMonth,"Selecionar $label")}})
+    if(open) {
+        val picker=rememberDatePickerState(initialSelectedDateMillis=runCatching{
+            LocalDate.parse(value).atStartOfDay(java.time.ZoneOffset.UTC).toInstant().toEpochMilli()
+        }.getOrNull())
+        DatePickerDialog(onDismissRequest={open=false},confirmButton={
+            TextButton(enabled=picker.selectedDateMillis!=null,onClick={
+                picker.selectedDateMillis?.let{onChange(java.time.Instant.ofEpochMilli(it).atZone(java.time.ZoneOffset.UTC).toLocalDate().toString())}
+                open=false
+            }){Text("Selecionar")}
+        },dismissButton={TextButton(onClick={open=false}){Text("Cancelar")}}){DatePicker(picker)}
+    }
+}
+
+@Composable fun EventEditor(data:MunnyDocument,id:String?,initialDate:String=today,onDismiss:()->Unit,onSave:(String,String,String,String)->Unit) {
+    val event=remember(data,id){data.objects("events").firstOrNull{it.optString("id")==id}}
+    var title by remember(id){mutableStateOf(event?.optString("title")?:"")}
+    var date by remember(id,initialDate){mutableStateOf(event?.optString("date")?:initialDate)}
+    var time by remember(id){mutableStateOf(event?.optString("time")?:"09:00")}
+    var notes by remember(id){mutableStateOf(event?.optString("notes")?:"")}
     var error by remember{mutableStateOf("")}
-    EditorDialog("Novo evento",onDismiss,{
-        try {require(time.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d")));onSave(title,LocalDate.parse(date).toString(),time,notes)}
+    EditorDialog(if(id==null)"Novo evento" else "Editar evento",onDismiss,{
+        try {require(title.isNotBlank()){ "Informe o nome do evento." };require(time.isBlank() || time.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d"))){ "Use HH:MM." };onSave(title,LocalDate.parse(date).toString(),time,notes)}
         catch(t:Throwable){error=t.message?:"Confira os campos."}
     },error){
-        Entry("Nome do evento",title,{title=it});Entry("Data (AAAA-MM-DD)",date,{date=it})
+        Entry("Nome do evento",title,{title=it});DateEntry("Data do evento",date,{date=it})
         Entry("Horário (HH:MM)",time,{time=it});Entry("Notas",notes,{notes=it},single=false)
     }
 }
