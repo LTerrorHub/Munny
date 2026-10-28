@@ -62,12 +62,12 @@ object MunnyCardMath {
     onEdit:(String)->Unit,
     onDelete:(String)->Unit,
     onPay:(String)->Unit,
-    onEditMovement:(String)->Unit,
-    onDeleteMovement:(String)->Unit
+    onNewPurchase:(String)->Unit,
+    onManageMovements:(String)->Unit
 ) {
     val cards=data.cards()
     val visible=LocalMoneyVisible.current
-    var showAllMovements by remember { mutableStateOf(false) }
+    var showBills by remember { mutableStateOf(false) }
     var chosen by remember(cards.map{it.id}){mutableStateOf(cards.firstOrNull()?.id?:"")}
     if(cards.isEmpty()) {
         SheetCard {
@@ -99,7 +99,7 @@ object MunnyCardMath {
                         color=Sage,style=MaterialTheme.typography.labelSmall,fontWeight=FontWeight.Bold)
                 }
             }
-            Text("Toque em um cartão da pilha para ver suas faturas e compras.",
+            Text("Toque em um cartão para consultar limite, consumo e disponível.",
                 color=Muted,style=MaterialTheme.typography.labelSmall)
         }
         Box(Modifier.fillMaxWidth().height(fullHeight)) {
@@ -181,20 +181,20 @@ object MunnyCardMath {
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement=Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f)) {
-                    Text("Comprometido",color=Muted,style=MaterialTheme.typography.labelSmall)
+                    Text("Limite consumido",color=Muted,style=MaterialTheme.typography.labelSmall)
                     Text(safeMoney(position.committed),fontWeight=FontWeight.Bold,
                         color=if(position.overLimit>0)Coral else Ink,
                         style=MaterialTheme.typography.titleMedium)
                 }
                 Column(Modifier.weight(1f)) {
-                    Text("Disponível estimado",color=Muted,
+                    Text("Disponível",color=Muted,
                         style=MaterialTheme.typography.labelSmall)
                     Text(safeMoney(position.available),fontWeight=FontWeight.Bold,
                         color=Sage,style=MaterialTheme.typography.titleMedium)
                 }
             }
             Spacer(Modifier.height(10.dp))
-            LinearProgressIndicator(progress={position.utilization},
+            if(visible)LinearProgressIndicator(progress={position.utilization},
                 modifier=Modifier.fillMaxWidth().height(10.dp),
                 color=if(position.overLimit>0)Coral else Sage,
                 trackColor=MaterialTheme.colorScheme.surfaceVariant)
@@ -218,14 +218,23 @@ object MunnyCardMath {
                 Text("Próxima fatura: ${invoice.due} · ${safeMoney(invoice.remaining)}",
                     color=Ink,style=MaterialTheme.typography.bodySmall)
             }
-            Text("Disponível estimado = limite cadastrado − faturas abertas (inclusive parcelas futuras). O banco pode considerar autorizações, encargos e outras regras não registradas.",
+            Text("Estimativa pelos registros do Munny. O consumo do limite inclui parcelas futuras em aberto.",
                 style=MaterialTheme.typography.labelSmall,color=Muted)
             Row(Modifier.fillMaxWidth()) {
                 TextButton(onClick={onEdit(selected.id)}){Text("Editar cartão")}
-                TextButton(onClick={onDelete(selected.id)}){Text("Excluir",color=Coral)}
+                TextButton(onClick={onDelete(selected.id)}){Text("Excluir cartão",color=Coral)}
             }
         }
-        SheetCard {
+        Button(onClick={onNewPurchase(selected.id)},modifier=Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Add,null);Spacer(Modifier.width(8.dp));Text("Adicionar compra")
+        }
+        OutlinedButton(onClick={onManageMovements(selected.id)},modifier=Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.ReceiptLong,null);Spacer(Modifier.width(8.dp));Text("Gerenciar lançamentos")
+        }
+        OutlinedButton(onClick={showBills=!showBills},modifier=Modifier.fillMaxWidth()) {
+            Text(if(showBills)"Ocultar faturas" else "Consultar faturas (${position.bills.size})")
+        }
+        if(showBills)SheetCard {
             Text("Faturas de ${selected.name}",fontWeight=FontWeight.Bold,
                 style=MaterialTheme.typography.titleMedium)
             if(position.bills.isEmpty())Text("Nenhuma fatura em aberto.",color=Muted)
@@ -243,63 +252,6 @@ object MunnyCardMath {
                     Text("Registrar pagamento")
                 }
             }
-        }
-        SheetCard {
-            Row(verticalAlignment=Alignment.CenterVertically) {
-                Icon(Icons.Default.ReceiptLong,contentDescription=null,tint=Sage)
-                Spacer(Modifier.width(9.dp))
-                Text("Lançamentos do cartão",fontWeight=FontWeight.Bold,
-                    style=MaterialTheme.typography.titleMedium)
-            }
-            Text("Compras, parcelas e pagamentos vinculados",color=Muted,
-                style=MaterialTheme.typography.labelSmall)
-            if(position.movements.isEmpty())Text("Ainda não há lançamentos neste cartão.",color=Muted)
-            val visibleMovements=if(showAllMovements)position.movements else position.movements.take(8)
-            visibleMovements.forEach{m->
-                HorizontalDivider(color=Line.copy(alpha=.55f))
-                Row(Modifier.fillMaxWidth().padding(vertical=8.dp),
-                    verticalAlignment=Alignment.CenterVertically) {
-                    Column(Modifier.weight(1f)) {
-                        Text(m.title.ifBlank{if(m.kind=="card")"Compra" else "Pagamento de fatura"},
-                            fontWeight=FontWeight.SemiBold,
-                            maxLines=1,overflow=TextOverflow.Ellipsis)
-                        Text("${m.category} · ${m.date} · ${m.invoiceMonth}",
-                            color=Muted,style=MaterialTheme.typography.labelSmall)
-                    }
-                    Text("${if(m.kind=="card")"−" else "+"} ${safeMoney(m.amount)}",
-                        fontWeight=FontWeight.SemiBold,
-                        color=if(m.kind=="card")Ink else Sage)
-                }
-                Row(Modifier.fillMaxWidth(),
-                    horizontalArrangement=Arrangement.End,
-                    verticalAlignment=Alignment.CenterVertically) {
-                    if(m.kind=="card") TextButton(onClick={onEditMovement(m.id)},
-                        contentPadding=PaddingValues(horizontal=12.dp,vertical=4.dp)) {
-                        Icon(Icons.Default.Edit,contentDescription=null,
-                            modifier=Modifier.size(16.dp))
-                        Spacer(Modifier.width(5.dp))
-                        Text("Editar",style=MaterialTheme.typography.labelSmall)
-                    }
-                    TextButton(onClick={onDeleteMovement(m.id)},
-                        contentPadding=PaddingValues(horizontal=12.dp,vertical=4.dp)) {
-                        Icon(Icons.Default.DeleteOutline,contentDescription=null,
-                            modifier=Modifier.size(16.dp),tint=Coral)
-                        Spacer(Modifier.width(5.dp))
-                        Text("Excluir",color=Coral,
-                            style=MaterialTheme.typography.labelSmall)
-                    }
-                }
-            }
-            if(position.movements.size>8) {
-                TextButton(onClick={showAllMovements=!showAllMovements}) {
-                    Text(if(showAllMovements)"Mostrar apenas os recentes"
-                        else "Ver todos os ${position.movements.size} lançamentos")
-                    Icon(if(showAllMovements)Icons.Default.ExpandLess
-                        else Icons.Default.ExpandMore,contentDescription=null)
-                }
-            }
-            Text("Excluir uma compra recalcula a fatura e o limite estimado. Excluir um pagamento de fatura também altera o saldo da conta associada.",
-                color=Muted,style=MaterialTheme.typography.labelSmall)
         }
     }
 }

@@ -41,13 +41,13 @@ val monthNow:String get()=YearMonth.now().toString()
 
 @Composable fun SheetCard(modifier:Modifier=Modifier, content:@Composable ColumnScope.()->Unit) {
     Card(modifier=modifier.animateContentSize(animationSpec=spring(stiffness=Spring.StiffnessMediumLow)),
-        shape=RoundedCornerShape(26.dp),colors=CardDefaults.cardColors(containerColor=Panel),
+        shape=RoundedCornerShape(20.dp),colors=CardDefaults.cardColors(containerColor=Panel),
         border=BorderStroke(1.dp,Line.copy(alpha=.72f)),
         elevation=CardDefaults.cardElevation(defaultElevation=1.dp),
-        content={Column(Modifier.padding(21.dp),content=content)})
+        content={Column(Modifier.padding(17.dp),content=content)})
 }
 @Composable fun PageHeader(title:String,subtitle:String) {
-    Text(title,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold)
+    Text(title,style=MaterialTheme.typography.headlineSmall,fontWeight=FontWeight.Bold,color=Ink)
     Spacer(Modifier.height(6.dp))
     Text(subtitle,color=Muted,style=MaterialTheme.typography.bodyMedium)
     Spacer(Modifier.height(19.dp))
@@ -78,9 +78,12 @@ val monthNow:String get()=YearMonth.now().toString()
     val data=vm.data
     var editor by remember { mutableStateOf("") }
     var editId by remember { mutableStateOf<String?>(null) }
+    var movementKind by remember { mutableStateOf("expense") }
+    var purchaseCardId by remember { mutableStateOf("") }
     var editingGoalId by remember { mutableStateOf<String?>(null) }
     var askDelete by remember { mutableStateOf<Pair<String,String>?>(null) }
-    var showSnack by remember { mutableStateOf(false) }
+    var customizeHome by remember { mutableStateOf(false) }
+    val savedTabs=androidx.compose.runtime.saveable.rememberSaveableStateHolder()
     var eventDate by remember { mutableStateOf(today) }
     val tabs=listOf("home","transactions","accounts","planning","agenda")
     val labels=listOf("Início","Lançamentos","Contas","Planejar","Agenda")
@@ -128,8 +131,8 @@ val monthNow:String get()=YearMonth.now().toString()
                         selectedTextColor=Sage,indicatorColor=SageSoft))
             }
         }},
-        floatingActionButton={if(vm.activeTab in setOf("home","transactions")) {
-            ExtendedFloatingActionButton(onClick={editor="movement";editId=null},containerColor=Sage,contentColor=Color(0xFF061810),
+        floatingActionButton={if(vm.activeTab=="transactions") {
+            ExtendedFloatingActionButton(onClick={editor="movement";editId=null;movementKind="expense"},containerColor=Sage,contentColor=MaterialTheme.colorScheme.onPrimary,
                 icon={Icon(Icons.Default.Add,contentDescription=null)},text={Text("Lançamento")})
         }}
     ) {padding->
@@ -146,26 +149,34 @@ val monthNow:String get()=YearMonth.now().toString()
                     (fadeOut(tween(170))+slideOutHorizontally(tween(210)){-it/9})
                 },
                 label="munny-tab-transition") { activeTab ->
+            savedTabs.SaveableStateProvider(activeTab) {
             when(activeTab) {
-                "home" -> HomeScreen(data,onAccount={vm.activeTab="accounts"},onTransaction={editor="movement"},onPlanning={vm.activeTab="planning"},onToggleBalance=vm::toggleBalanceVisibility)
-                "transactions" -> TransactionsScreen(data,onNew={editor="movement";editId=null},onEdit={editor="movement";editId=it},
+                "home" -> HomeHud(vm,onNew={editor="movement";editId=null;movementKind="expense"},onCustomize={customizeHome=true})
+                "transactions" -> TransactionWorkspace(vm,
+                    onNewCard={purchaseCardId=it;movementKind="card";editId=null;editor="movement"},
+                    onEdit={editor="movement";editId=it},
                     onDelete={askDelete="transactions" to it})
                 "accounts" -> AccountsScreen(data,onNewAccount={editor="account";editId=null},onEditAccount={editor="account";editId=it},
                     onNewCard={editor="card";editId=null},onEditCard={editor="card";editId=it},onPay={editor="invoice";editId=it},
                     onDeleteAccount={askDelete="accounts" to it},onDeleteCard={askDelete="cards" to it},
-                    onEditMovement={editor="movement";editId=it},onDeleteMovement={askDelete="transactions" to it})
+                    onTransfer={editor="movement";editId=null;movementKind="transfer"},
+                    onNewPurchase={purchaseCardId=it;movementKind="card";editId=null;editor="movement"},
+                    onManageMovements={vm.openTransactions(cardId=it)})
                 "planning" -> PlanningScreen(data,onGoal={editingGoalId=null;editor="goal"},
                      onEditGoal={editingGoalId=it;editor="goal"},onBudget={editor="budget"})
-                "agenda" -> MunnyAgendaScreen(data,onNewEvent={eventDate=it;editor="event"})
-                "settings" -> SettingsScreen(vm,onExport=onExport,onImport=onImport)
+                "agenda" -> MunnyAgendaScreen(data,onNewEvent={eventDate=it;editId=null;editor="event"},
+                    onEditEvent={editId=it;editor="event"})
+                "settings" -> SettingsScreen(vm,onExport=onExport,onImport=onImport,onCustomizeHome={customizeHome=true})
+            }
             }
             }
         }
     }
     }
     }
+    if(customizeHome)HomeLayoutEditor(vm,onDismiss={customizeHome=false})
     when(editor){
-        "movement"->MovementEditor(data,editId,onDismiss={editor=""},onSave={m,notes,parts->
+        "movement"->MovementEditor(data,editId,initialKind=movementKind,initialCardId=if(movementKind=="card")purchaseCardId else "",onDismiss={editor=""},onSave={m,notes,parts->
             if(vm.mutate{it.upsertMovement(m,notes,parts)})editor=""
         })
         "account"->AccountEditor(data,editId,onDismiss={editor=""},onSave={id,name,value->if(vm.mutate{it.upsertAccount(id,name,value)})editor=""})
@@ -176,9 +187,14 @@ val monthNow:String get()=YearMonth.now().toString()
                  if(vm.mutate{it.upsertGoal(id,name,target,saved,deadline)})editor=""
              })
         "budget"->BudgetEditor(data,onDismiss={editor=""},onSave={cat,amount,month->if(vm.mutate{it.addBudget(cat,amount,month)})editor=""})
-        "event"->EventEditor(initialDate=eventDate,onDismiss={editor=""},onSave={title,date,time,notes->if(vm.mutate{it.addEvent(title,date,time,notes)})editor=""})
+        "event"->EventEditor(data,editId,initialDate=eventDate,onDismiss={editor=""},onSave={title,date,time,notes->if(vm.mutate{it.upsertEvent(editId,title,date,time,notes)})editor=""})
     }
     askDelete?.let{(kind,id)->
+        if(kind=="transactions")MovementDeletionDialog(data,id,
+            onDismiss={askDelete=null},onConfirm={whole->
+                if(vm.mutate{it.deleteMovement(id,whole)})askDelete=null
+            })
+        else
         AlertDialog(onDismissRequest={askDelete=null},title={Text("Excluir registro?")},
             text={Text(when {
                 kind=="transactions" && data.movements().any{it.id==id&&it.kind=="cardPayment"} ->
@@ -197,106 +213,6 @@ val monthNow:String get()=YearMonth.now().toString()
     }
 }
 
-@Composable fun HomeScreen(data:MunnyDocument,onAccount:()->Unit,onTransaction:()->Unit,onPlanning:()->Unit,onToggleBalance:()->Unit) {
-    val accounts=data.accounts();val moves=data.movements();val exceptions=data.exceptions()
-    val balance=remember(data) {FinanceMath.breakdown(accounts,moves,exceptions,today)}
-    val monthly=remember(data) {FinanceMath.month(moves,exceptions,monthNow)}
-    val forecast=remember(data){FinanceMath.projected(accounts,data.cards(),moves,exceptions,YearMonth.now().atEndOfMonth().toString())}
-    var expanded by remember {mutableStateOf(false)}
-    val visible=LocalMoneyVisible.current
-    val settingsName=data.settings().optString("name").trim()
-    LazyColumn(contentPadding=PaddingValues(start=17.dp,top=19.dp,end=17.dp,bottom=128.dp),
-        verticalArrangement=Arrangement.spacedBy(18.dp)) {
-        item {
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(if(settingsName.isNotBlank())"Olá, $settingsName!" else "Seu panorama financeiro",
-                        style=MaterialTheme.typography.headlineSmall,color=Ink,fontWeight=FontWeight.Bold)
-                    Text("Seu dinheiro, com mais clareza.",color=Muted)
-                }
-                Surface(shape=RoundedCornerShape(50),color=SageSoft) {
-                    Text(YearMonth.now().month.getDisplayName(java.time.format.TextStyle.SHORT,Locale("pt","BR"))
-                        .replaceFirstChar{it.uppercase()},Modifier.padding(horizontal=14.dp,vertical=9.dp),
-                        color=Sage,fontWeight=FontWeight.SemiBold)
-                }
-            }
-        }
-        item {SheetCard(Modifier.fillMaxWidth()) {
-            Row(verticalAlignment=Alignment.CenterVertically) {
-                Surface(color=SageSoft,shape=RoundedCornerShape(14.dp)) {
-                    Icon(Icons.Default.AccountBalanceWallet,null,Modifier.padding(10.dp),tint=Sage)
-                }
-                Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Saldo disponível",fontWeight=FontWeight.SemiBold,color=Ink)
-                    Text("Valor atual nas contas",color=Muted,style=MaterialTheme.typography.labelSmall)
-                }
-                IconButton(onClick=onToggleBalance) {
-                    Icon(if(visible)Icons.Default.Visibility else Icons.Default.VisibilityOff,
-                        contentDescription=if(visible)"Ocultar saldo" else "Exibir saldo",tint=Sage)
-                }
-            }
-            Spacer(Modifier.height(8.dp))
-            BigMoney(balance.total)
-            Text("Somente valores efetivamente confirmados",color=Muted,style=MaterialTheme.typography.labelSmall)
-            Spacer(Modifier.height(9.dp))
-            TextButton(onClick={expanded=!expanded},contentPadding=PaddingValues(0.dp)){
-                Text(if(expanded)"Ocultar composição" else "Detalhar saldo")
-                Icon(if(expanded)Icons.Default.ExpandLess else Icons.Default.ExpandMore,null)
-            }
-            if(expanded) {
-                HorizontalDivider(color=Line);Spacer(Modifier.height(10.dp))
-                BalanceRow("Saldo inicial",balance.initial,true)
-                BalanceRow("Recebimentos",balance.income,true)
-                BalanceRow("Despesas pagas",balance.expenses,false)
-                BalanceRow("Faturas pagas",balance.invoices,false)
-                Text("Transferências internas se anulam no total.",color=Muted,style=MaterialTheme.typography.labelSmall)
-                HorizontalDivider(Modifier.padding(vertical=8.dp),color=Line)
-                BalanceRow("Saldo reconciliado",balance.total,balance.total>=0L)
-                CardPositionDetails(data)
-                TextButton(onClick=onAccount) {
-                    Icon(Icons.Default.CreditCard,null)
-                    Spacer(Modifier.width(7.dp))
-                    Text("Ver todas as faturas")
-                }
-            }
-        }}
-        item { MunnyWalletSummary(data,onOpenAccounts=onAccount) }
-        item { Text("Resumo do mês",fontWeight=FontWeight.Bold,
-            style=MaterialTheme.typography.titleMedium,color=Ink) }
-        item {Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-            NumberTile("Entradas do mês",monthly.income,"Recebidos",Modifier.weight(1f),positive=true)
-            NumberTile("Gastos do mês",monthly.consumption,"Despesas + cartão",Modifier.weight(1f),positive=false)
-        }}
-        item { Text("Evolução financeira",fontWeight=FontWeight.Bold,
-            style=MaterialTheme.typography.titleMedium,color=Ink) }
-        item {MonthlyFinancePanel(data)}
-        item { Text("Para onde foi o dinheiro",fontWeight=FontWeight.Bold,
-            style=MaterialTheme.typography.titleMedium,color=Ink) }
-        item {CategorySpendingPanel(data)}
-        item {SheetCard {
-            Row(verticalAlignment=Alignment.CenterVertically) {
-                Icon(Icons.Default.TrendingUp,null,tint=Sage)
-                Spacer(Modifier.width(10.dp))
-                Column(Modifier.weight(1f)) {
-                    Text("Saldo projetado",fontWeight=FontWeight.SemiBold)
-                    Text("Até o fim do mês, considerando previsões",color=Muted,style=MaterialTheme.typography.labelSmall)
-                }
-                Text(safeMoney(forecast),color=Ink,fontWeight=FontWeight.SemiBold)
-            }
-        }}
-        if(accounts.isEmpty())item {SheetCard {Text("Cadastre sua primeira conta",fontWeight=FontWeight.Bold)
-            Text("Informe o dinheiro que você já possui. Não registre esse mesmo valor novamente como Entrada.",color=Muted)
-            Spacer(Modifier.height(10.dp));Button(onClick=onAccount){Text("Adicionar conta")}
-        }}
-        item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-            Text("Lançamentos recentes",modifier=Modifier.weight(1f),fontWeight=FontWeight.Bold)
-            TextButton(onClick=onTransaction){Text("Novo lançamento")}
-        }}
-        items(FinanceMath.occurrences(moves,exceptions,today).sortedByDescending{it.date}.take(6),key={it.id}){MovementRow(it)}
-        item {Spacer(Modifier.height(55.dp))}
-    }
-}
 @Composable fun BalanceRow(label:String,value:Long,plus:Boolean) {
     Row(Modifier.fillMaxWidth().padding(vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
         Text(label,color=Muted,modifier=Modifier.weight(1f),style=MaterialTheme.typography.bodyMedium)
@@ -308,7 +224,7 @@ val monthNow:String get()=YearMonth.now().toString()
 }
 @Composable fun MovementRow(m:MoneyMovement,onEdit:(()->Unit)?=null,
     onDelete:(()->Unit)?=null,data:MunnyDocument?=null){
-    SheetCard {
+    SheetCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment=Alignment.CenterVertically){
             Surface(shape=RoundedCornerShape(12.dp),color=if(m.kind=="income")SageSoft else if(m.kind=="card")Lilac else Canvas) {
                 Icon(if(m.kind=="income")Icons.Default.SouthWest else if(m.kind=="card")Icons.Default.CreditCard else Icons.Default.NorthEast,
@@ -318,7 +234,7 @@ val monthNow:String get()=YearMonth.now().toString()
             Column(Modifier.weight(1f)){
                 Text(m.title, fontWeight=FontWeight.SemiBold,maxLines=1,overflow=TextOverflow.Ellipsis)
                 val kindName=when(m.kind){"card"->"Cartão";"expense"->"Despesa";"transfer"->"Transferência interna";"cardPayment"->"Fatura paga";else->"Entrada"}
-                Text("${kindName} · ${m.category} · ${m.date} · ${if(m.status=="paid")"Confirmado" else "Previsto"}",
+                Text("${kindName} · ${m.category}",
                     color=Muted,style=MaterialTheme.typography.labelSmall)
                 data?.let{doc->
                     val origin=when {
@@ -342,151 +258,25 @@ val monthNow:String get()=YearMonth.now().toString()
                     }
                 }
             }
-            Text("${if(m.kind=="income")"+" else if(m.kind=="transfer")"⇄" else "−"} ${safeMoney(m.amount)}",
-                color=if(m.kind=="income")Sage else Ink,fontWeight=FontWeight.Bold)
-        }
-        if(onEdit!=null||onDelete!=null) {
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End){
-                if(onEdit!=null)TextButton(onClick=onEdit){Text("Editar")}
-                if(onDelete!=null)TextButton(onClick=onDelete){Text("Excluir",color=Coral)}
-            }
-        }
-    }
-}
-@Composable fun TransactionsScreen(data:MunnyDocument,onNew:()->Unit,onEdit:(String)->Unit,onDelete:(String)->Unit) {
-    val entries=data.movements().sortedWith(compareByDescending<MoneyMovement>{it.date}.thenByDescending{it.id})
-    var filter by remember {mutableStateOf("all")}
-    var query by remember {mutableStateOf("")}
-    var source by remember {mutableStateOf("all")}
-    var status by remember {mutableStateOf("all")}
-    var monthFilter by remember {mutableStateOf(false)}
-    var showMix by remember {mutableStateOf(false)}
-    val accounts=data.accounts()
-    val cards=data.cards()
-    val sourceOptions=listOf("all" to "Todas as origens")+
-        accounts.map{("account:"+it.id) to it.name}+
-        cards.map{("card:"+it.id) to it.name}
-    val shown=entries.filter{m->
-        (filter=="all"||m.kind==filter) &&
-        (status=="all"||m.status==status) &&
-        (!monthFilter||m.date.startsWith(monthNow)) &&
-        (source=="all"||
-            (source.startsWith("account:") &&
-                (m.accountId==source.removePrefix("account:")||
-                    m.toAccountId==source.removePrefix("account:"))) ||
-            (source.startsWith("card:") && m.cardId==source.removePrefix("card:"))) &&
-        (query.isBlank()||m.title.contains(query,true)||m.category.contains(query,true))
-    }
-    val incoming=shown.filter{it.kind=="income"&&it.status=="paid"}.sumOf{it.amount}
-    val expenses=shown.filter{it.kind=="expense"&&it.status=="paid"}.sumOf{it.amount}
-    val cardConsumption=shown.filter{it.kind=="card"}.sumOf{it.amount}
-    LazyColumn(
-        contentPadding=PaddingValues(start=17.dp,top=18.dp,end=17.dp,bottom=128.dp),
-        verticalArrangement=Arrangement.spacedBy(16.dp)
-    ){
-        item {PageHeader("Lançamentos","Consulte por tipo, conta, cartão, período e situação.")}
-        item {SheetCard(Modifier.fillMaxWidth()) {
-            Text("Visão dos registros filtrados",fontWeight=FontWeight.Bold,
-                style=MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(13.dp))
-            Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-                Column(Modifier.weight(1f)) {
-                    Text("Entradas recebidas",color=Muted,style=MaterialTheme.typography.labelSmall)
-                    Spacer(Modifier.height(5.dp))
-                    Text(safeMoney(incoming),color=Sage,fontWeight=FontWeight.Bold,
-                        style=MaterialTheme.typography.titleMedium,maxLines=1)
-                }
-                Column(Modifier.weight(1f)) {
-                    Text("Consumo registrado",color=Muted,style=MaterialTheme.typography.labelSmall)
-                    Spacer(Modifier.height(5.dp))
-                    Text(safeMoney(expenses+cardConsumption),color=Ink,fontWeight=FontWeight.Bold,
-                        style=MaterialTheme.typography.titleMedium,maxLines=1)
-                }
-            }
-            Spacer(Modifier.height(11.dp))
-            Text("Consumo = despesas diretas pagas + compras em cartão. Pagamentos de fatura e transferências não são somados novamente.",
-                color=Muted,style=MaterialTheme.typography.labelSmall)
-        }}
-        item {
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text("Composição dos gastos",fontWeight=FontWeight.Bold)
-                    Text("Mini dashboard por meio",color=Muted,
-                        style=MaterialTheme.typography.labelSmall)
-                }
-                TextButton(onClick={showMix=!showMix}) {
-                    Text(if(showMix)"Ocultar" else "Exibir")
-                    Icon(if(showMix)Icons.Default.ExpandLess else Icons.Default.ExpandMore,null)
+            Column(horizontalAlignment=Alignment.End,modifier=Modifier.widthIn(max=150.dp)) {
+                Text("${if(m.kind=="income")"+" else if(m.kind=="transfer")"⇄" else "−"} ${safeMoney(m.amount)}",
+                    color=if(m.kind=="income")Sage else if(m.kind=="transfer")Muted else Coral,fontWeight=FontWeight.Bold)
+                Surface(shape=RoundedCornerShape(8.dp),color=if(m.status=="paid")SageSoft else MaterialTheme.colorScheme.surfaceVariant) {
+                    Text(if(m.status=="paid")"Confirmado" else "Previsto",Modifier.padding(horizontal=7.dp,vertical=3.dp),
+                        color=if(m.status=="paid")Sage else MatrixOrange,style=MaterialTheme.typography.labelSmall)
                 }
             }
         }
-        if(showMix)item { SpendingTypeDashboard(data,onSelectKind={filter=it}) }
-        item {
-            OutlinedTextField(query,{query=it},
-                Modifier.fillMaxWidth(),label={Text("Pesquisar descrição ou categoria")},
-                leadingIcon={Icon(Icons.Default.Search,null)},singleLine=true,
-                shape=RoundedCornerShape(18.dp))
-        }
-        item {
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Text("Período",Modifier.weight(1f),fontWeight=FontWeight.SemiBold)
-                FilterChip(selected=!monthFilter,onClick={monthFilter=false},label={Text("Todo histórico")})
-                Spacer(Modifier.width(7.dp))
-                FilterChip(selected=monthFilter,onClick={monthFilter=true},label={Text("Este mês")})
-            }
-        }
-        item {
-            Text("Tipo de lançamento",fontWeight=FontWeight.SemiBold)
-            Spacer(Modifier.height(7.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                listOf("all" to "Todos","income" to "Entradas","expense" to "Despesas",
-                    "card" to "Cartão","transfer" to "Transferências",
-                    "cardPayment" to "Fatura paga").forEach{(id,label)->
-                    FilterChip(selected=filter==id,onClick={filter=id},label={Text(label)})
+        if(onEdit!=null || onDelete!=null) {
+            HorizontalDivider(Modifier.padding(top=10.dp),color=Line.copy(alpha=.6f))
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
+                if(onEdit!=null)TextButton(onClick=onEdit) {
+                    Icon(Icons.Default.Edit,null,Modifier.size(18.dp));Spacer(Modifier.width(5.dp));Text("Editar")
                 }
-            }
-        }
-        item {
-            Text("Conta ou cartão",fontWeight=FontWeight.SemiBold)
-            Spacer(Modifier.height(7.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                sourceOptions.forEach{(id,label)->
-                    FilterChip(selected=source==id,onClick={source=id},
-                        label={Text(label,maxLines=1)})
+                if(onDelete!=null)TextButton(onClick=onDelete) {
+                    Icon(Icons.Default.DeleteOutline,null,Modifier.size(18.dp),tint=Coral)
+                    Spacer(Modifier.width(5.dp));Text("Excluir",color=Coral)
                 }
-            }
-        }
-        item {
-            Text("Situação",fontWeight=FontWeight.SemiBold)
-            Spacer(Modifier.height(7.dp))
-            Row(Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                listOf("all" to "Todas","paid" to "Confirmados","planned" to "Previstos")
-                    .forEach{(id,label)->
-                        FilterChip(selected=status==id,onClick={status=id},
-                            label={Text(label)})
-                    }
-            }
-        }
-        item {
-            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
-                Text("${shown.size} lançamento(s) encontrados",fontWeight=FontWeight.Bold,
-                    modifier=Modifier.weight(1f))
-                TextButton(onClick=onNew) {Icon(Icons.Default.Add,null);Text("Novo")}
-            }
-        }
-        if(shown.isEmpty())item {SheetCard{Text("Nenhum lançamento encontrado. Ajuste os filtros.",color=Muted)}}
-        shown.groupBy{it.date}.forEach{(date,movements)->
-            item(key="date:${date}") {
-                Text(date,color=Muted,fontWeight=FontWeight.SemiBold,
-                    style=MaterialTheme.typography.labelMedium,
-                    modifier=Modifier.padding(top=5.dp,bottom=1.dp))
-            }
-            items(movements,key={it.id}){movement->
-                MovementRow(movement,onEdit={onEdit(movement.id)},
-                    onDelete={onDelete(movement.id)},data=data)
             }
         }
     }
@@ -494,38 +284,50 @@ val monthNow:String get()=YearMonth.now().toString()
 @Composable fun AccountsScreen(data:MunnyDocument,onNewAccount:()->Unit,onEditAccount:(String)->Unit,
     onNewCard:()->Unit,onEditCard:(String)->Unit,onPay:(String)->Unit,
     onDeleteAccount:(String)->Unit,onDeleteCard:(String)->Unit,
-    onEditMovement:(String)->Unit,onDeleteMovement:(String)->Unit) {
+    onTransfer:()->Unit,onNewPurchase:(String)->Unit,onManageMovements:(String)->Unit) {
     val accounts=data.accounts();val cards=data.cards();val moves=data.movements();val ex=data.exceptions()
-    val bills=FinanceMath.invoices(cards,moves,ex,LocalDate.now().plusYears(2).toString())
+    var section by androidx.compose.runtime.saveable.rememberSaveable{mutableStateOf("accounts")}
     LazyColumn(contentPadding=PaddingValues(start=17.dp,top=18.dp,end=17.dp,bottom=116.dp),
         verticalArrangement=Arrangement.spacedBy(17.dp)){
         item {PageHeader("Contas e cartões","Dinheiro que você tem e compromissos separados.")}
         item {Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
-            Button(onClick=onNewAccount){Icon(Icons.Default.Add,null);Spacer(Modifier.width(5.dp));Text("Conta")}
-            OutlinedButton(onClick=onNewCard){Icon(Icons.Default.CreditCard,null);Spacer(Modifier.width(5.dp));Text("Cartão")}
+            FilterChip(selected=section=="accounts",onClick={section="accounts"},label={Text("Contas")},modifier=Modifier.weight(1f))
+            FilterChip(selected=section=="cards",onClick={section="cards"},label={Text("Cartões")},modifier=Modifier.weight(1f))
         }}
-        item {Text("Dinheiro nas contas",fontWeight=FontWeight.Bold)}
+        if(section=="accounts") {
+        item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Text("Dinheiro nas contas",fontWeight=FontWeight.Bold,color=Ink,modifier=Modifier.weight(1f))
+            TextButton(onClick=onNewAccount){Text("+ Conta")}
+        }}
+        if(accounts.isEmpty())item{SheetCard(Modifier.fillMaxWidth()) {Text("Cadastre uma conta e seu saldo inicial.",color=Muted)}}
         items(accounts,key={it.id}) {account ->
             val b=FinanceMath.breakdown(accounts,moves,ex,today,account.id)
             SheetCard {
                 Text(account.name,fontWeight=FontWeight.Bold)
                 Spacer(Modifier.height(5.dp));BigMoney(b.total)
                 Text("Valor de partida ${safeMoney(account.initial)}",color=Muted,style=MaterialTheme.typography.labelSmall)
-                Text("Entradas ${safeMoney(b.income)} · Pagamentos ${safeMoney(b.expenses+b.invoices)}",color=Muted,style=MaterialTheme.typography.labelSmall)
-                if(b.outgoing!=0L||b.incoming!=0L)Text("Transferências: +${safeMoney(b.incoming)} / −${safeMoney(b.outgoing)}",color=Muted,style=MaterialTheme.typography.labelSmall)
                 Row {TextButton(onClick={onEditAccount(account.id)}){Text("Editar")};TextButton(onClick={onDeleteAccount(account.id)}){Text("Excluir",color=Coral)}}
             }
         }
+        item {OutlinedButton(onClick=onTransfer,modifier=Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.SwapHoriz,null);Spacer(Modifier.width(8.dp));Text("Transferir entre contas")
+        }}
+        } else {
+        item {Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
+            Text("Meus cartões",fontWeight=FontWeight.Bold,color=Ink,modifier=Modifier.weight(1f))
+            TextButton(onClick=onNewCard){Text("+ Cartão")}
+        }}
         item {
             MunnyCardStack(data,onEdit=onEditCard,onDelete=onDeleteCard,onPay=onPay,
-                onEditMovement=onEditMovement,onDeleteMovement=onDeleteMovement)
+                onNewPurchase=onNewPurchase,onManageMovements=onManageMovements)
+        }
         }
         item{Spacer(Modifier.height(25.dp))}
     }
 }
 @Composable fun PlanningScreen(data:MunnyDocument,onGoal:()->Unit,
     onEditGoal:(String)->Unit,onBudget:()->Unit) {
-    var section by remember { mutableStateOf("health") }
+    var section by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf("goals") }
     Column(Modifier.fillMaxSize()) {
         Column(Modifier.padding(horizontal=17.dp,vertical=10.dp)) {
             PageHeader("Planejar","Saúde financeira, investimentos, metas e limites.")
@@ -534,9 +336,9 @@ val monthNow:String get()=YearMonth.now().toString()
                 horizontalArrangement=Arrangement.spacedBy(7.dp)
             ) {
                 listOf(
+                    "goals" to "Metas e limites",
                     "health" to "Saúde",
-                    "invest" to "Simulador",
-                    "goals" to "Metas e limites"
+                    "invest" to "Simulador"
                 ).forEach { (key,label) ->
                     FilterChip(
                         selected=section==key,
@@ -587,7 +389,6 @@ val monthNow:String get()=YearMonth.now().toString()
             data.exceptions()).illustrativeContribution
     }
     LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
-        item {PageHeader("Metas e limites","Orçamentos, objetivos e lançamentos previstos.")}
         item {SheetCard {Text("Saldo projetado no fim do mês",color=Muted)
             BigMoney(estimate)
             Text("Inclui compromissos previstos e o saldo de faturas com vencimento no período.",color=Muted,style=MaterialTheme.typography.labelSmall)
@@ -602,7 +403,9 @@ val monthNow:String get()=YearMonth.now().toString()
             val limit=budget.optLong("amount")
             SheetCard {
                 Text(budget.optString("category"),fontWeight=FontWeight.SemiBold)
-                Spacer(Modifier.height(7.dp));LinearProgressIndicator(progress={if(limit>0)(total.toFloat()/limit).coerceIn(0f,1f) else 0f},modifier=Modifier.fillMaxWidth())
+                if(LocalMoneyVisible.current) {
+                    Spacer(Modifier.height(7.dp));LinearProgressIndicator(progress={if(limit>0)(total.toFloat()/limit).coerceIn(0f,1f) else 0f},modifier=Modifier.fillMaxWidth())
+                }
                 Spacer(Modifier.height(7.dp));Text("${safeMoney(total)} de ${safeMoney(limit)}",color=Muted)
             }
         }
@@ -621,12 +424,10 @@ val monthNow:String get()=YearMonth.now().toString()
             MunnyGoalDashboard(goal,onEdit={onEditGoal(goal.optString("id"))},
                 historicalContribution=historical)
         }
-        item {Text("Lançamentos previstos",fontWeight=FontWeight.Bold)}
-        items(FinanceMath.occurrences(moves,ex,end).filter{it.status=="planned"&&it.kind!="card"}.take(8),key={it.id}){MovementRow(it)}
         item{Spacer(Modifier.height(30.dp))}
     }
 }
-@Composable fun SettingsScreen(vm:MunnyViewModel,onExport:()->Unit,onImport:()->Unit){
+@Composable fun SettingsScreen(vm:MunnyViewModel,onExport:()->Unit,onImport:()->Unit,onCustomizeHome:()->Unit){
     var emailInput by remember {mutableStateOf("")};var password by remember {mutableStateOf("")}
     var confirmSync by remember {mutableStateOf("")}
     LazyColumn(contentPadding=PaddingValues(17.dp),verticalArrangement=Arrangement.spacedBy(13.dp)){
@@ -640,6 +441,8 @@ val monthNow:String get()=YearMonth.now().toString()
                 }
             }
             Spacer(Modifier.height(13.dp))
+            ThemeTonePicker(vm)
+            HorizontalDivider(Modifier.padding(vertical=12.dp),color=Line)
             Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text("Chuva digital Matrix",fontWeight=FontWeight.SemiBold)
@@ -649,6 +452,12 @@ val monthNow:String get()=YearMonth.now().toString()
             }
             Text("Privacidade de valores",fontWeight=FontWeight.SemiBold)
             Text("Use o ícone de olho na barra superior para ocultar ou revelar valores.",color=Muted,style=MaterialTheme.typography.labelSmall)
+        }}
+        item {SheetCard(Modifier.fillMaxWidth()) {
+            Text("Seu painel inicial",fontWeight=FontWeight.Bold,style=MaterialTheme.typography.titleMedium)
+            Text("Escolha os resumos do HUD e arraste para mudar a ordem.",color=Muted)
+            Spacer(Modifier.height(10.dp))
+            Button(onClick=onCustomizeHome){Icon(Icons.Default.DashboardCustomize,null);Spacer(Modifier.width(8.dp));Text("Personalizar Início")}
         }}
         item {SheetCard {
             Text("Widgets para a tela inicial",fontWeight=FontWeight.Bold,

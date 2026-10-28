@@ -61,6 +61,23 @@ class MunnyDocument private constructor(private val raw: JSONObject) {
         for (old in result.objects(key)) if (old.getString("id") != id) arr.put(old)
         result.raw.put(key, arr)
     }
+    fun movementDeletionIds(id:String,wholePurchase:Boolean=false):Set<String> {
+        val row=objects("transactions").firstOrNull{it.optString("id")==id}
+            ?: error("Lançamento não encontrado. Atualize a lista e tente novamente.")
+        val group=row.optString("groupId")
+        if(!wholePurchase || row.optString("kind")!="card" || group.isBlank())return setOf(id)
+        return objects("transactions").filter {
+            it.optString("kind")=="card" && it.optString("cardId")==row.optString("cardId") &&
+                it.optString("groupId")==group
+        }.map{it.getString("id")}.toSet()
+    }
+    /** Remove only explicitly selected records; never infer installments from a title. */
+    fun deleteMovement(id:String,wholePurchase:Boolean=false):MunnyDocument {
+        val ids=movementDeletionIds(id,wholePurchase)
+        return copy().also { result ->
+            result.raw.put("transactions",JSONArray(result.objects("transactions").filterNot{it.getString("id") in ids}))
+        }
+    }
     fun rename(name: String): MunnyDocument = copy().also { it.settings().put("name", name.take(80)) }
     fun updateCategory(category: String): MunnyDocument = copy().also {
         val set = it.strings("categories").toMutableSet()
@@ -93,7 +110,10 @@ class MunnyDocument private constructor(private val raw: JSONObject) {
         require(m.status in setOf("paid","planned"))
         require(m.status != "paid" || m.date <= LocalDate.now().toString()) { "Lançamento futuro deve ser previsto." }
         if (m.kind == "transfer") require(m.accountId.isNotBlank() && m.toAccountId.isNotBlank() && m.accountId != m.toAccountId)
-        if (m.kind == "card") require(m.cardId.isNotBlank() && m.invoiceMonth.matches(Regex("\\d{4}-\\d{2}")))
+        if (m.kind == "card") {
+            require(cards().any{it.id==m.cardId}) { "Selecione um cartão cadastrado." }
+            java.time.YearMonth.parse(m.invoiceMonth)
+        }
         if (m.kind != "card") require(accounts().any { it.id == m.accountId }) { "Selecione uma conta." }
         val category=m.category.ifBlank { "Outros" }
         var base = updateCategory(category)
@@ -142,8 +162,19 @@ class MunnyDocument private constructor(private val raw: JSONObject) {
             .put("category",category).put("amount",amount).put("month",month))
     }
     fun addEvent(title:String,date:String,time:String,notes:String):MunnyDocument {
-        require(title.isNotBlank());LocalDate.parse(date)
-        return replace("events",JSONObject().put("id",UUID.randomUUID().toString()).put("title",title.take(150))
-            .put("date",date).put("time",time).put("notes",notes.take(2000)).put("repeat","none"))
+        return upsertEvent(null,title,date,time,notes)
+    }
+    /** Past and future dates are both valid; keep identity and unknown fields on edit. */
+    fun upsertEvent(id:String?,title:String,date:String,time:String,notes:String):MunnyDocument {
+        require(title.isNotBlank()) { "Informe o nome do evento." }
+        LocalDate.parse(date)
+        require(time.isBlank() || time.matches(Regex("([01]\\d|2[0-3]):[0-5]\\d"))) { "Use um horário válido (HH:MM)." }
+        val current=objects("events").find { it.optString("id")==id }
+        require(id==null || current!=null) { "Evento não encontrado." }
+        val event=JSONObject(current?.toString()?:"{}")
+            .put("id",id?:UUID.randomUUID().toString()).put("title",title.trim().take(150))
+            .put("date",date).put("time",time).put("notes",notes.take(2000))
+        if(!event.has("repeat"))event.put("repeat","none")
+        return replace("events",event)
     }
 }

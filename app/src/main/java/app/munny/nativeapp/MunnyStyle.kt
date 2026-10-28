@@ -47,19 +47,30 @@ val Panel:Color @Composable get()=LocalMunnyPalette.current.panel
 val LocalMoneyVisible=compositionLocalOf { true }
 
 /** system | light | dark; respeita a configuração nativa e mantém barras legíveis. */
-@Composable fun MunnyTheme(mode:String="system", content:@Composable ()->Unit) {
+@Composable fun MunnyTheme(mode:String="system",tone:String="mint", content:@Composable ()->Unit) {
     val isDark=when(mode) {"light"->false;"dark"->true;else->isSystemInDarkTheme()}
-    val p=if(isDark)darkPalette else lightPalette
+    val base=if(isDark)darkPalette else lightPalette
+    val p=when(tone) {
+        "ocean" -> if(isDark)base.copy(sage=Color(0xFF74CFFF),sageSoft=Color(0xFF142B3B),canvas=Color(0xFF080F18),panel=Color(0xFF131F2D),line=Color(0xFF34485E))
+            else base.copy(sage=Color(0xFF006491),sageSoft=Color(0xFFD9EEFF),canvas=Color(0xFFF2F7FC),panel=Color.White,line=Color(0xFFCCDDEB))
+        "violet" -> if(isDark)base.copy(sage=Color(0xFFC6AEFF),sageSoft=Color(0xFF302444),canvas=Color(0xFF100C18),panel=Color(0xFF20192C),line=Color(0xFF4A3A5C))
+            else base.copy(sage=Color(0xFF6944AC),sageSoft=Color(0xFFEDE3FF),canvas=Color(0xFFF8F4FC),panel=Color.White,line=Color(0xFFDFD1EC))
+        "amber" -> if(isDark)base.copy(sage=Color(0xFFF3C776),sageSoft=Color(0xFF352C19),canvas=Color(0xFF131008),panel=Color(0xFF252015),line=Color(0xFF504630))
+            else base.copy(sage=Color(0xFF805700),sageSoft=Color(0xFFFFEDC9),canvas=Color(0xFFFBF7EE),panel=Color.White,line=Color(0xFFE7DBBF))
+        else -> base
+    }
     val colors=if(isDark) darkColorScheme(
         primary=p.sage,onPrimary=Color(0xFF05241D),primaryContainer=p.sageSoft,
         onPrimaryContainer=p.ink,background=p.canvas,onBackground=p.ink,
         surface=p.panel,onSurface=p.ink,surfaceVariant=Color(0xFF222C32),
-        onSurfaceVariant=p.muted,outline=p.line,error=p.coral,secondary=p.orange
+        onSurfaceVariant=p.muted,outline=p.line,error=p.coral,secondary=p.sage,
+        secondaryContainer=p.sageSoft,onSecondaryContainer=p.ink,surfaceTint=Color.Transparent
     ) else lightColorScheme(
         primary=p.sage,onPrimary=Color.White,primaryContainer=p.sageSoft,
-        onPrimaryContainer=Color(0xFF124736),background=p.canvas,onBackground=p.ink,
+        onPrimaryContainer=p.ink,background=p.canvas,onBackground=p.ink,
         surface=p.panel,onSurface=p.ink,surfaceVariant=Color(0xFFEDF3F1),
-        onSurfaceVariant=p.muted,outline=p.line,error=p.coral,secondary=p.orange
+        onSurfaceVariant=p.muted,outline=p.line,error=p.coral,secondary=p.sage,
+        secondaryContainer=p.sageSoft,onSecondaryContainer=p.ink,surfaceTint=Color.Transparent
     )
     val view=LocalView.current
     if(!view.isInEditMode) SideEffect {
@@ -71,7 +82,7 @@ val LocalMoneyVisible=compositionLocalOf { true }
                 View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR or View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR
         }
     }
-    CompositionLocalProvider(LocalMunnyPalette provides p) {
+    CompositionLocalProvider(LocalMunnyPalette provides p,LocalContentColor provides p.ink) {
         MaterialTheme(colorScheme=colors,typography=Typography(
             headlineMedium=TextStyle(fontSize=28.sp,fontWeight=FontWeight.Bold),
             headlineSmall=TextStyle(fontSize=23.sp,fontWeight=FontWeight.Bold),
