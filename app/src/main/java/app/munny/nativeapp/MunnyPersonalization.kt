@@ -29,6 +29,7 @@ object HomeModules {
     val all=listOf(
         HomeModule("balance","Saldo disponível","Total atual de contas e carteira"),
         HomeModule("monthly","Resumo do mês","Recebimentos e consumo do mês"),
+        HomeModule("charts","Gráficos resumidos","Escolha entre rosca, barras e linhas"),
         HomeModule("attention","Precisa de atenção","Faturas próximas ou em atraso"),
         HomeModule("cards","Cartões","Resumo do limite consumido e disponível"),
         HomeModule("budgets","Orçamentos","Uso dos limites por categoria"),

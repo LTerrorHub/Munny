@@ -61,7 +61,9 @@ object MunnyCardMath {
     data:MunnyDocument,
     onEdit:(String)->Unit,
     onDelete:(String)->Unit,
-    onPay:(String)->Unit
+    onPay:(String)->Unit,
+    onNewPurchase:(String)->Unit,
+    onManageMovements:(String)->Unit
 ) {
     val cards=data.cards()
     val visible=LocalMoneyVisible.current
@@ -220,8 +222,14 @@ object MunnyCardMath {
                 style=MaterialTheme.typography.labelSmall,color=Muted)
             Row(Modifier.fillMaxWidth()) {
                 TextButton(onClick={onEdit(selected.id)}){Text("Editar cartão")}
-                TextButton(onClick={onDelete(selected.id)}){Text("Excluir",color=Coral)}
+                TextButton(onClick={onDelete(selected.id)}){Text("Excluir cartão",color=Coral)}
             }
+        }
+        Button(onClick={onNewPurchase(selected.id)},modifier=Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.Add,null);Spacer(Modifier.width(8.dp));Text("Adicionar compra")
+        }
+        OutlinedButton(onClick={onManageMovements(selected.id)},modifier=Modifier.fillMaxWidth()) {
+            Icon(Icons.Default.ReceiptLong,null);Spacer(Modifier.width(8.dp));Text("Gerenciar lançamentos")
         }
         OutlinedButton(onClick={showBills=!showBills},modifier=Modifier.fillMaxWidth()) {
             Text(if(showBills)"Ocultar faturas" else "Consultar faturas (${position.bills.size})")

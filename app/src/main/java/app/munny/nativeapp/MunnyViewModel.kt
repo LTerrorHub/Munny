@@ -10,6 +10,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+data class TransactionFocus(val cardId:String?=null,val analytics:Boolean=false)
+
 class MunnyViewModel(application:Application):AndroidViewModel(application) {
     private val repo=MunnyRepository(application)
     var data by androidx.compose.runtime.mutableStateOf(repo.snapshot());private set
@@ -25,6 +27,29 @@ class MunnyViewModel(application:Application):AndroidViewModel(application) {
         private set
     var themeTone by androidx.compose.runtime.mutableStateOf(displayPrefs.getString("theme_tone","mint") ?: "mint")
         private set
+    var homeChartTopic by androidx.compose.runtime.mutableStateOf(displayPrefs.getString("home_chart_topic","categories")?:"categories")
+        private set
+    var homeChartStyle by androidx.compose.runtime.mutableStateOf(displayPrefs.getString("home_chart_style","donut")?:"donut")
+        private set
+    var transactionChartTopic by androidx.compose.runtime.mutableStateOf(displayPrefs.getString("transaction_chart_topic","trend")?:"trend")
+        private set
+    var transactionChartStyle by androidx.compose.runtime.mutableStateOf(displayPrefs.getString("transaction_chart_style","line")?:"line")
+        private set
+    var transactionFocus by androidx.compose.runtime.mutableStateOf<TransactionFocus?>(null)
+        private set
+    fun openTransactions(cardId:String?=null,analytics:Boolean=false) {
+        transactionFocus=TransactionFocus(cardId,analytics)
+        activeTab="transactions"
+    }
+    fun consumeTransactionFocus(){transactionFocus=null}
+    fun updateChart(home:Boolean,topic:String,style:String) {
+        val safeTopic=MunnyChartMath.safeTopic(topic)
+        val safeStyle=MunnyChartMath.safeStyle(safeTopic,style)
+        if(home){homeChartTopic=safeTopic;homeChartStyle=safeStyle}
+        else {transactionChartTopic=safeTopic;transactionChartStyle=safeStyle}
+        val prefix=if(home)"home" else "transaction"
+        displayPrefs.edit().putString("${prefix}_chart_topic",safeTopic).putString("${prefix}_chart_style",safeStyle).apply()
+    }
     var homeOrder by androidx.compose.runtime.mutableStateOf(
         HomeModules.normalize(displayPrefs.getString("home_order","")!!.split(",")))
         private set

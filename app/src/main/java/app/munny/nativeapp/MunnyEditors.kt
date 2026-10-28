@@ -90,7 +90,7 @@ private fun newMoney(v:String,allowZero:Boolean=false):Long {
         Entry("Dia do vencimento (1 a 31)",due,{due=it})
     }
 }
-@Composable fun MovementEditor(data:MunnyDocument,id:String?,onDismiss:()->Unit,onSave:(MoneyMovement,String,Int)->Unit,initialKind:String="expense") {
+@Composable fun MovementEditor(data:MunnyDocument,id:String?,onDismiss:()->Unit,onSave:(MoneyMovement,String,Int)->Unit,initialKind:String="expense",initialCardId:String="") {
     val old=data.movements().find{it.id==id}
     val accounts=data.accounts();val cards=data.cards()
     var kind by remember(id){mutableStateOf(old?.kind?:initialKind)}
@@ -100,7 +100,7 @@ private fun newMoney(v:String,allowZero:Boolean=false):Long {
     var category by remember(id){mutableStateOf(old?.category?:"Outros")}
     var account by remember(id){mutableStateOf(old?.accountId?:accounts.firstOrNull()?.id.orEmpty())}
     var destination by remember(id){mutableStateOf(old?.toAccountId?:accounts.getOrNull(1)?.id.orEmpty())}
-    var card by remember(id){mutableStateOf(old?.cardId?:cards.firstOrNull()?.id.orEmpty())}
+    var card by remember(id,initialCardId){mutableStateOf(old?.cardId?:initialCardId.takeIf{chosen->cards.any{it.id==chosen}}?:cards.firstOrNull()?.id.orEmpty())}
     var invoiceMonth by remember(id){mutableStateOf(old?.invoiceMonth?:monthNow)}
     var installments by remember(id){mutableStateOf("1")}
     var status by remember(id){mutableStateOf(old?.status?:"paid")}
@@ -108,6 +108,11 @@ private fun newMoney(v:String,allowZero:Boolean=false):Long {
     var repeat by remember(id){mutableStateOf(old?.repeat?:"none")}
     var error by remember(id){mutableStateOf("")}
     val selectedCard=cards.find{it.id==card}
+    LaunchedEffect(card,date,kind) {
+        if(old==null && kind=="card" && selectedCard!=null) {
+            runCatching{FinanceMath.invoiceMonth(selectedCard,date)}.onSuccess{invoiceMonth=it}
+        }
+    }
     EditorDialog(if(old==null)"Novo lançamento" else "Editar lançamento",onDismiss,{
         try {
             val value=newMoney(amount)

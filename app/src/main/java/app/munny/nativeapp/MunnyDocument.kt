@@ -61,6 +61,23 @@ class MunnyDocument private constructor(private val raw: JSONObject) {
         for (old in result.objects(key)) if (old.getString("id") != id) arr.put(old)
         result.raw.put(key, arr)
     }
+    fun movementDeletionIds(id:String,wholePurchase:Boolean=false):Set<String> {
+        val row=objects("transactions").firstOrNull{it.optString("id")==id}
+            ?: error("Lançamento não encontrado. Atualize a lista e tente novamente.")
+        val group=row.optString("groupId")
+        if(!wholePurchase || row.optString("kind")!="card" || group.isBlank())return setOf(id)
+        return objects("transactions").filter {
+            it.optString("kind")=="card" && it.optString("cardId")==row.optString("cardId") &&
+                it.optString("groupId")==group
+        }.map{it.getString("id")}.toSet()
+    }
+    /** Remove only explicitly selected records; never infer installments from a title. */
+    fun deleteMovement(id:String,wholePurchase:Boolean=false):MunnyDocument {
+        val ids=movementDeletionIds(id,wholePurchase)
+        return copy().also { result ->
+            result.raw.put("transactions",JSONArray(result.objects("transactions").filterNot{it.getString("id") in ids}))
+        }
+    }
     fun rename(name: String): MunnyDocument = copy().also { it.settings().put("name", name.take(80)) }
     fun updateCategory(category: String): MunnyDocument = copy().also {
         val set = it.strings("categories").toMutableSet()
@@ -93,7 +110,10 @@ class MunnyDocument private constructor(private val raw: JSONObject) {
         require(m.status in setOf("paid","planned"))
         require(m.status != "paid" || m.date <= LocalDate.now().toString()) { "Lançamento futuro deve ser previsto." }
         if (m.kind == "transfer") require(m.accountId.isNotBlank() && m.toAccountId.isNotBlank() && m.accountId != m.toAccountId)
-        if (m.kind == "card") require(m.cardId.isNotBlank() && m.invoiceMonth.matches(Regex("\\d{4}-\\d{2}")))
+        if (m.kind == "card") {
+            require(cards().any{it.id==m.cardId}) { "Selecione um cartão cadastrado." }
+            java.time.YearMonth.parse(m.invoiceMonth)
+        }
         if (m.kind != "card") require(accounts().any { it.id == m.accountId }) { "Selecione uma conta." }
         val category=m.category.ifBlank { "Outros" }
         var base = updateCategory(category)

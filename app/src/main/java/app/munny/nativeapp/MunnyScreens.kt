@@ -79,6 +79,7 @@ val monthNow:String get()=YearMonth.now().toString()
     var editor by remember { mutableStateOf("") }
     var editId by remember { mutableStateOf<String?>(null) }
     var movementKind by remember { mutableStateOf("expense") }
+    var purchaseCardId by remember { mutableStateOf("") }
     var editingGoalId by remember { mutableStateOf<String?>(null) }
     var askDelete by remember { mutableStateOf<Pair<String,String>?>(null) }
     var customizeHome by remember { mutableStateOf(false) }
@@ -151,12 +152,16 @@ val monthNow:String get()=YearMonth.now().toString()
             savedTabs.SaveableStateProvider(activeTab) {
             when(activeTab) {
                 "home" -> HomeHud(vm,onNew={editor="movement";editId=null;movementKind="expense"},onCustomize={customizeHome=true})
-                "transactions" -> TransactionWorkspace(data,onEdit={editor="movement";editId=it},
+                "transactions" -> TransactionWorkspace(vm,
+                    onNewCard={purchaseCardId=it;movementKind="card";editId=null;editor="movement"},
+                    onEdit={editor="movement";editId=it},
                     onDelete={askDelete="transactions" to it})
                 "accounts" -> AccountsScreen(data,onNewAccount={editor="account";editId=null},onEditAccount={editor="account";editId=it},
                     onNewCard={editor="card";editId=null},onEditCard={editor="card";editId=it},onPay={editor="invoice";editId=it},
                     onDeleteAccount={askDelete="accounts" to it},onDeleteCard={askDelete="cards" to it},
-                    onTransfer={editor="movement";editId=null;movementKind="transfer"})
+                    onTransfer={editor="movement";editId=null;movementKind="transfer"},
+                    onNewPurchase={purchaseCardId=it;movementKind="card";editId=null;editor="movement"},
+                    onManageMovements={vm.openTransactions(cardId=it)})
                 "planning" -> PlanningScreen(data,onGoal={editingGoalId=null;editor="goal"},
                      onEditGoal={editingGoalId=it;editor="goal"},onBudget={editor="budget"})
                 "agenda" -> MunnyAgendaScreen(data,onNewEvent={eventDate=it;editId=null;editor="event"},
@@ -171,7 +176,7 @@ val monthNow:String get()=YearMonth.now().toString()
     }
     if(customizeHome)HomeLayoutEditor(vm,onDismiss={customizeHome=false})
     when(editor){
-        "movement"->MovementEditor(data,editId,initialKind=movementKind,onDismiss={editor=""},onSave={m,notes,parts->
+        "movement"->MovementEditor(data,editId,initialKind=movementKind,initialCardId=if(movementKind=="card")purchaseCardId else "",onDismiss={editor=""},onSave={m,notes,parts->
             if(vm.mutate{it.upsertMovement(m,notes,parts)})editor=""
         })
         "account"->AccountEditor(data,editId,onDismiss={editor=""},onSave={id,name,value->if(vm.mutate{it.upsertAccount(id,name,value)})editor=""})
@@ -185,6 +190,11 @@ val monthNow:String get()=YearMonth.now().toString()
         "event"->EventEditor(data,editId,initialDate=eventDate,onDismiss={editor=""},onSave={title,date,time,notes->if(vm.mutate{it.upsertEvent(editId,title,date,time,notes)})editor=""})
     }
     askDelete?.let{(kind,id)->
+        if(kind=="transactions")MovementDeletionDialog(data,id,
+            onDismiss={askDelete=null},onConfirm={whole->
+                if(vm.mutate{it.deleteMovement(id,whole)})askDelete=null
+            })
+        else
         AlertDialog(onDismissRequest={askDelete=null},title={Text("Excluir registro?")},
             text={Text(when {
                 kind=="transactions" && data.movements().any{it.id==id&&it.kind=="cardPayment"} ->
@@ -214,7 +224,6 @@ val monthNow:String get()=YearMonth.now().toString()
 }
 @Composable fun MovementRow(m:MoneyMovement,onEdit:(()->Unit)?=null,
     onDelete:(()->Unit)?=null,data:MunnyDocument?=null){
-    var menu by remember{mutableStateOf(false)}
     SheetCard(Modifier.fillMaxWidth()) {
         Row(verticalAlignment=Alignment.CenterVertically){
             Surface(shape=RoundedCornerShape(12.dp),color=if(m.kind=="income")SageSoft else if(m.kind=="card")Lilac else Canvas) {
@@ -256,12 +265,17 @@ val monthNow:String get()=YearMonth.now().toString()
                     Text(if(m.status=="paid")"Confirmado" else "Previsto",Modifier.padding(horizontal=7.dp,vertical=3.dp),
                         color=if(m.status=="paid")Sage else MatrixOrange,style=MaterialTheme.typography.labelSmall)
                 }
-                if(onEdit!=null || onDelete!=null)Box {
-                    IconButton(onClick={menu=true},modifier=Modifier.size(32.dp)){Icon(Icons.Default.MoreHoriz,"Ações de ${m.title}",tint=Muted)}
-                    DropdownMenu(expanded=menu,onDismissRequest={menu=false}) {
-                        if(onEdit!=null)DropdownMenuItem(text={Text("Editar")},onClick={menu=false;onEdit()})
-                        if(onDelete!=null)DropdownMenuItem(text={Text("Excluir",color=Coral)},onClick={menu=false;onDelete()})
-                    }
+            }
+        }
+        if(onEdit!=null || onDelete!=null) {
+            HorizontalDivider(Modifier.padding(top=10.dp),color=Line.copy(alpha=.6f))
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End) {
+                if(onEdit!=null)TextButton(onClick=onEdit) {
+                    Icon(Icons.Default.Edit,null,Modifier.size(18.dp));Spacer(Modifier.width(5.dp));Text("Editar")
+                }
+                if(onDelete!=null)TextButton(onClick=onDelete) {
+                    Icon(Icons.Default.DeleteOutline,null,Modifier.size(18.dp),tint=Coral)
+                    Spacer(Modifier.width(5.dp));Text("Excluir",color=Coral)
                 }
             }
         }
@@ -270,7 +284,7 @@ val monthNow:String get()=YearMonth.now().toString()
 @Composable fun AccountsScreen(data:MunnyDocument,onNewAccount:()->Unit,onEditAccount:(String)->Unit,
     onNewCard:()->Unit,onEditCard:(String)->Unit,onPay:(String)->Unit,
     onDeleteAccount:(String)->Unit,onDeleteCard:(String)->Unit,
-    onTransfer:()->Unit) {
+    onTransfer:()->Unit,onNewPurchase:(String)->Unit,onManageMovements:(String)->Unit) {
     val accounts=data.accounts();val cards=data.cards();val moves=data.movements();val ex=data.exceptions()
     var section by androidx.compose.runtime.saveable.rememberSaveable{mutableStateOf("accounts")}
     LazyColumn(contentPadding=PaddingValues(start=17.dp,top=18.dp,end=17.dp,bottom=116.dp),
@@ -304,7 +318,8 @@ val monthNow:String get()=YearMonth.now().toString()
             TextButton(onClick=onNewCard){Text("+ Cartão")}
         }}
         item {
-            MunnyCardStack(data,onEdit=onEditCard,onDelete=onDeleteCard,onPay=onPay)
+            MunnyCardStack(data,onEdit=onEditCard,onDelete=onDeleteCard,onPay=onPay,
+                onNewPurchase=onNewPurchase,onManageMovements=onManageMovements)
         }
         }
         item{Spacer(Modifier.height(25.dp))}

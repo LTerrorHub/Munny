@@ -4,6 +4,7 @@ import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -29,22 +30,42 @@ private val kindOptions=listOf("all" to "Todos","income" to "Entradas","expense"
 private val statusOptions=listOf("all" to "Todas","paid" to "Confirmados","planned" to "Previstos")
 
 @OptIn(ExperimentalMaterial3Api::class)
-@Composable fun TransactionWorkspace(data:MunnyDocument,onEdit:(String)->Unit,onDelete:(String)->Unit) {
+@Composable fun TransactionWorkspace(vm:MunnyViewModel,onNewCard:(String)->Unit,onEdit:(String)->Unit,onDelete:(String)->Unit) {
+    val data=vm.data
     var filter by rememberSaveable(stateSaver=filterSaver){mutableStateOf(TransactionFilter())}
     var query by rememberSaveable{mutableStateOf("")}
     var month by rememberSaveable{mutableStateOf(monthNow)}
     var oldest by rememberSaveable{mutableStateOf(false)}
     var section by rememberSaveable{mutableStateOf("records")}
     var openFilters by remember{mutableStateOf(false)}
+    val listState=rememberLazyListState()
+    val focus=vm.transactionFocus
+    LaunchedEffect(focus) {
+        if(focus!=null) {
+            filter=if(focus.cardId!=null)TransactionFilter(kind="card",source="card:${focus.cardId}",period="all")
+                else TransactionFilter()
+            query="";month=monthNow
+            section=if(focus.analytics)"analytics" else "records"
+            listState.scrollToItem(0)
+            vm.consumeTransactionFocus()
+        }
+    }
     val rows=remember(data,filter,query,month,oldest){
         MunnyTransactionQuery.select(data.movements(),data.exceptions(),filter,month,query,oldest)
     }
     val sources=listOf("all" to "Todas as origens")+data.accounts().map{"account:${it.id}" to it.name}+
         data.cards().map{"card:${it.id}" to it.name}
     val count=listOf(filter.kind!="all",filter.source!="all",filter.status!="all",filter.period!="month").count{it}
-    LazyColumn(contentPadding=PaddingValues(17.dp,16.dp,17.dp,116.dp),
+    LazyColumn(state=listState,contentPadding=PaddingValues(17.dp,16.dp,17.dp,116.dp),
         verticalArrangement=Arrangement.spacedBy(13.dp)) {
         item {PageHeader("Lançamentos","Registros e análises do seu dinheiro.")}
+        if(data.cards().isNotEmpty())item {
+            val selected=data.cards().find{filter.source=="card:${it.id}"}
+            OutlinedButton(onClick={onNewCard(selected?.id.orEmpty())},modifier=Modifier.fillMaxWidth()) {
+                Icon(Icons.Default.AddCard,null,Modifier.size(20.dp));Spacer(Modifier.width(8.dp))
+                Text(if(selected==null)"Adicionar compra no cartão" else "Adicionar compra · ${selected.name}",maxLines=2)
+            }
+        }
         item {
             Surface(color=Panel,shape=RoundedCornerShape(16.dp),border=BorderStroke(1.dp,Line)) {
                 Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically) {
@@ -111,13 +132,15 @@ private val statusOptions=listOf("all" to "Todas","paid" to "Confirmados","plann
             }
         }}
         if(section=="analytics") {
-            item {FilteredTransactionCharts(rows)}
+            item {MunnyChartPanel(rows,vm.transactionChartTopic,vm.transactionChartStyle,
+                onChange={topic,style->vm.updateChart(false,topic,style)})}
+            item {FilteredAnalysisSummary(rows)}
         } else {
             if(rows.isEmpty())item {SheetCard{Text("Nenhum lançamento encontrado. Ajuste os filtros ou adicione um registro.",color=Muted)}}
             rows.groupBy{it.date}.forEach{(date,movements)->
                 item(key="date:$date") {Text(LocalDate.parse(date).format(DateTimeFormatter.ofPattern("dd MMM yyyy",Locale("pt","BR"))),
                     color=Muted,fontWeight=FontWeight.SemiBold)}
-                items(movements,key={it.id}){m->MovementRow(m,onEdit={onEdit(m.id)},onDelete={onDelete(m.id)},data=data)}
+                items(movements,key={it.id}){m->MovementRow(m,onEdit=if(m.kind=="cardPayment")null else {{onEdit(m.id)}},onDelete={onDelete(m.id)},data=data)}
             }
         }
     }
@@ -186,68 +209,23 @@ private val statusOptions=listOf("all" to "Todas","paid" to "Confirmados","plann
     }
 }
 
-@Composable private fun FilteredTransactionCharts(rows:List<MoneyMovement>) {
-    val visible=LocalMoneyVisible.current
-    Column(verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        SheetCard(Modifier.fillMaxWidth()) {
-            Text("Evolução no período",fontWeight=FontWeight.Bold)
-            Text("Mesmos registros da lista e mesmos filtros.",color=Muted,style=MaterialTheme.typography.labelSmall)
-            if(!visible)Text("Gráficos ocultos por privacidade.",color=Muted)
-            else if(rows.isEmpty())Text("Sem registros para analisar.",color=Muted)
-            else {
-                val months=MunnyTransactionQuery.months(rows)
-                val max=months.values.maxOf{maxOf(MunnyTransactionQuery.income(it),MunnyTransactionQuery.consumption(it))}.coerceAtLeast(1)
-                months.entries.toList().takeLast(6).forEach{(month,entries)->
-                    Spacer(Modifier.height(12.dp))
-                    Text(YearMonth.parse(month).format(DateTimeFormatter.ofPattern("MMM yyyy",Locale("pt","BR"))),fontWeight=FontWeight.SemiBold)
-                    ChartBar("Recebido",MunnyTransactionQuery.income(entries),max,true)
-                    ChartBar("Consumo",MunnyTransactionQuery.consumption(entries),max,false)
-                }
-                if(months.size>6)Text("Exibindo os últimos 6 meses com registros no filtro.",color=Muted,style=MaterialTheme.typography.labelSmall)
+@Composable private fun FilteredAnalysisSummary(rows:List<MoneyMovement>) {
+    SheetCard(Modifier.fillMaxWidth()) {
+        Text("Detalhamento do filtro",fontWeight=FontWeight.Bold,color=Ink)
+        listOf(
+            "Compras no cartão" to rows.filter{it.kind=="card"}.sumOf{it.amount},
+            "Despesas diretas pagas" to rows.filter{it.kind=="expense"&&it.status=="paid"}.sumOf{it.amount},
+            "Transferências confirmadas" to rows.filter{it.kind=="transfer"&&it.status=="paid"}.sumOf{it.amount},
+            "Pagamentos de fatura" to rows.filter{it.kind=="cardPayment"&&it.status=="paid"}.sumOf{it.amount},
+            "Entradas previstas" to rows.filter{it.kind=="income"&&it.status=="planned"}.sumOf{it.amount},
+            "Despesas previstas" to rows.filter{it.kind=="expense"&&it.status=="planned"}.sumOf{it.amount}
+        ).forEach{(label,value)->
+            Row(Modifier.fillMaxWidth().padding(vertical=8.dp),verticalAlignment=Alignment.CenterVertically) {
+                Text(label,Modifier.weight(1f),color=Muted,style=MaterialTheme.typography.bodySmall)
+                Spacer(Modifier.width(8.dp));Text(safeMoney(value),color=Ink,fontWeight=FontWeight.SemiBold)
             }
         }
-        SheetCard(Modifier.fillMaxWidth()) {
-            Text("Gastos por categoria",fontWeight=FontWeight.Bold)
-            val groups=MunnyTransactionQuery.categories(rows)
-            if(!visible)Text("Distribuição oculta por privacidade.",color=Muted)
-            else if(groups.isEmpty())Text("Sem despesas confirmadas ou compras no cartão neste filtro.",color=Muted)
-            else {
-                val total=groups.sumOf{it.second}
-                groups.forEach{(category,value)->
-                    Spacer(Modifier.height(11.dp))
-                    Row(verticalAlignment=Alignment.CenterVertically) {
-                        Text(category,Modifier.weight(1f),color=Ink)
-                        Text(String.format(Locale("pt","BR"),"%.1f%%",value.toDouble()*100/total),color=Muted,
-                            style=MaterialTheme.typography.labelSmall)
-                    }
-                    ChartBar("",value,total,true)
-                }
-            }
-        }
-        SheetCard(Modifier.fillMaxWidth()) {
-            Text("Meios de pagamento",fontWeight=FontWeight.Bold)
-            val card=rows.filter{it.kind=="card"}.sumOf{it.amount}
-            val direct=rows.filter{it.kind=="expense"&&it.status=="paid"}.sumOf{it.amount}
-            val total=(card+direct).coerceAtLeast(1)
-            if(visible) {
-                ChartBar("Cartão",card,total,true)
-                ChartBar("Despesa direta",direct,total,false)
-                Text("Transferências: ${safeMoney(rows.filter{it.kind=="transfer"&&it.status=="paid"}.sumOf{it.amount})}",color=Muted)
-            } else Text("Gráficos ocultos por privacidade.",color=Muted)
-            Spacer(Modifier.height(8.dp))
-            Text("Consumo = despesas pagas + compras no cartão. Transferências e pagamentos de fatura não entram novamente nessa soma.",
-                color=Muted,style=MaterialTheme.typography.labelSmall)
-        }
+        Text("Transferências e pagamentos são apresentados separadamente; não somam novamente no consumo.",
+            color=Muted,style=MaterialTheme.typography.labelSmall)
     }
-}
-
-@Composable private fun ChartBar(label:String,value:Long,max:Long,positive:Boolean) {
-    Row(Modifier.fillMaxWidth().padding(top=5.dp),verticalAlignment=Alignment.CenterVertically) {
-        Text(label,Modifier.weight(1f),color=Muted,style=MaterialTheme.typography.labelSmall)
-        Text(safeMoney(value),fontWeight=FontWeight.SemiBold,color=if(positive)Sage else Coral,
-            style=MaterialTheme.typography.bodySmall)
-    }
-    LinearProgressIndicator(progress={(value.toDouble()/max.coerceAtLeast(1)).toFloat().coerceIn(0f,1f)},
-        modifier=Modifier.fillMaxWidth().padding(top=4.dp).height(6.dp),color=if(positive)Sage else Coral,
-        trackColor=Line.copy(alpha=.4f))
 }

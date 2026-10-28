@@ -49,6 +49,15 @@ import java.util.Locale
         }}
         items(visibleModules,key={it}){id->
             when(id) {
+                "charts" -> {
+                    val rows=remember(data,current) {
+                        FinanceMath.occurrences(moves,exceptions,current.atEndOfMonth().toString())
+                            .filter{it.date.startsWith(current.toString())}
+                    }
+                    MunnyChartPanel(rows,vm.homeChartTopic,vm.homeChartStyle,compact=true,
+                        onChange={topic,style->vm.updateChart(true,topic,style)},
+                        onDetail={vm.openTransactions(analytics=true)})
+                }
                 "balance" -> SheetCard(Modifier.fillMaxWidth().clickable{vm.activeTab="accounts"}) {
                     Text("Saldo disponível",color=Muted)
                     BigMoney(balance)

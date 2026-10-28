@@ -11,8 +11,8 @@ android {
         applicationId = "app.munny.nativeapp" // Pacote separado do Munny original: não sobrescreve dados locais
         minSdk = 26
         targetSdk = 35
-        versionCode = 280
-        versionName = "2.8.0"
+        versionCode = 290
+        versionName = "2.9.0"
     }
     buildFeatures { compose = true }
     compileOptions { sourceCompatibility = JavaVersion.VERSION_17; targetCompatibility = JavaVersion.VERSION_17 }
